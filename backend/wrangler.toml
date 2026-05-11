@@ -5,6 +5,7 @@ compatibility_date = "2024-01-01"
 [vars]
 DATABASE_URL="prisma://accelerate.prisma-data.net/?api_key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcGlfa2V5IjoiYjJmOGQxNzQtMGYwNi00NzkxLTljMGYtMTU5MGQyY2I3YTJlIiwidGVuYW50X2lkIjoiNjJhNDE2MjZiZjBiYWYzZmQ5ZmJmY2M2M2JjMzMxYjVlOWQ0MjFkYWEyMjU0OTJlNWM3NTE2MzBmYzI5NzNlMCIsImludGVybmFsX3NlY3JldCI6IjZiMWZjOThhLWFkZGYtNGUxMi1hYzU3LWEzNTVmNDliN2ViOSJ9.tlPdWH9_cTjen3A9FePpsG-Wad3v9Rmq4N9H_6R3o1I"
 JWT_STRING="verysecretpassword"
+OPENAI_API_KEY="sk-your-openai-api-key-here"
 
 [build]
 command = "npm run build"

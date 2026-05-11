@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User & Auth ──────────────────────────────────────────────────
+// ─── Scheduled Tasks ──────────────────────────────────────────────
+model ScheduledTask {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation("UserTasks", fields: [userId], references: [id], onDelete: Cascade)
+  habitId     String?  // optional link to a habit
+
+  name        String
+  message     String   // email body / reminder text
+  email       String   // recipient email
+
+  // Cron expression e.g. "0 8 * * *" or "one-time"
+  schedule    String
+  isRecurring Boolean  @default(true)
+  timezone    String   @default("UTC")
+
+  status      String   @default("active") // "active" | "paused" | "completed"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model User {
+  id             String   @id @default(uuid())
+  firstName      String
+  lastName       String?
+  email          String   @unique
+  password       String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Gamification
+  experiencePoints Int  @default(0)
+  level            Int  @default(1)
+  currentStreak    Int  @default(0)
+  longestStreak    Int  @default(0)
+
+  // Relations
+  habits       Habit[]       @relation("UserHabits")
+  moodLogs     MoodLog[]
+  aiInsights   AIInsight[]
+  chatHistory  ChatMessage[]
+  badges       UserBadge[]
+  quests       Quest[]
+  scheduledTasks ScheduledTask[] @relation("UserTasks")
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ─── Habits ────────────────────────────────────────────────────────
+model Habit {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  priority    Int       @default(1)  // 1=high, 2=medium, 3=low
+  category    String?   // Health, Work, Learning, Mindfulness, Lifestyle, Other
+  tags        String[]  @default([])
+  color       String    @default("#6366f1") // for UI color coding
+  startDate   String    // "YYYY-MM-DD"
+  endDate     String?   // null = open-ended
+  isArchived  Boolean   @default(false)
+  aiGenerated Boolean   @default(false)
+
+  userId      String
+  user        User      @relation("UserHabits", fields: [userId], references: [id], onDelete: Cascade)
+
+  subHabits   SubHabit[]
+  dates       HabitDate[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model SubHabit {
+  id      String         @id @default(uuid())
+  content String
+  habitId String
+  habit   Habit          @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  dates   SubHabitDate[]
+}
+
+model SubHabitDate {
+  id         String   @id @default(uuid())
+  date       String   // "YYYY-MM-DD"
+  completed  Boolean  @default(false)
+  subHabitId String
+  subHabit   SubHabit @relation(fields: [subHabitId], references: [id], onDelete: Cascade)
+
+  @@unique([subHabitId, date])
+}
+
+model HabitDate {
+  id        String  @id @default(uuid())
+  date      String  // "YYYY-MM-DD"
+  completed Boolean @default(false)
+  habitId   String
+  habit     Habit   @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  xpAwarded Int     @default(0)
+
+  @@unique([habitId, date])
+}
+
+// ─── Mood & Energy Tracking ────────────────────────────────────────
+model MoodLog {
+  id        String   @id @default(uuid())
+  date      String   // "YYYY-MM-DD"
+  mood      Int      // 1-5 scale (1=awful, 5=amazing)
+  energy    Int      // 1-5 scale
+  note      String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+// ─── AI Insights ───────────────────────────────────────────────────
+model AIInsight {
+  id        String   @id @default(uuid())
+  type      String   // "weekly_review" | "monthly_review" | "suggestion" | "forecast"
+  period    String?  // "2024-01" for monthly, "2024-W01" for weekly
+  content   Json     // The structured AI response
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime?
+
+  @@index([userId, type, period])
+}
+
+// ─── AI Chat ───────────────────────────────────────────────────────
+model ChatMessage {
+  id        String   @id @default(uuid())
+  role      String   // "user" | "assistant"
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// ─── Gamification ─────────────────────────────────────────────────
+model Badge {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String
+  icon        String      // emoji or icon name
+  xpRequired  Int         @default(0)
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  userId    String
+  badgeId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id])
+  earnedAt  DateTime @default(now())
+
+  @@unique([userId, badgeId])
+}
+
+model Quest {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  xpReward    Int      @default(50)
+  condition   Json     // { type: "streak"|"completion"|"habit_count", target: number, period?: string }
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  expiresAt   DateTime?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([userId, isCompleted])
+}
