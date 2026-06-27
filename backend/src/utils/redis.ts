@@ -37,6 +37,7 @@ export async function disconnectRedis(): Promise<void> {
 }
 
 // ─── Key helpers ─────────────────────────────────────────────────
+export const TOKEN_VERSION_KEY = (userId: string) => `auth:token_version:${userId}`;
 export const TASK_KEY = (taskId: string) => `scheduler:task:${taskId}`;
 export const USER_TASKS_KEY = (userId: string) => `scheduler:user:${userId}`;
 export const LOCK_KEY = (taskId: string) => `scheduler:lock:${taskId}`;

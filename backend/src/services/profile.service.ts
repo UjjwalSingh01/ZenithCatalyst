@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import sharp from 'sharp';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middlewares/error.middleware';
+import { bumpTokenVersion } from './token.service';
 
 const SALT_ROUNDS = 12;
 
@@ -47,8 +48,10 @@ export async function changePassword(userId: string, currentPassword: string, ne
     const hashedPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await prisma.user.update({ where: { id: userId }, data: { password: hashedPassword } });
 
-    // Invalidate all refresh tokens so other sessions are logged out.
+    // Invalidate all refresh tokens AND outstanding access tokens so other
+    // sessions are logged out immediately.
     await prisma.refreshToken.deleteMany({ where: { userId } });
+    await bumpTokenVersion(userId);
 }
 
 export async function deleteAccount(userId: string) {

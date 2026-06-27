@@ -39,6 +39,10 @@ export async function logout() {
     clearTokens();
 }
 
+export async function logoutAllDevices() {
+    await api.post('/auth/logout-all');
+}
+
 // ─── Profile ───────────────────────────────────────────────────────
 
 export async function fetchProfile(): Promise<User> {

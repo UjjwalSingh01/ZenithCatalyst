@@ -57,6 +57,9 @@ model User {
   currentStreak    Int @default(0)
   longestStreak    Int @default(0)
 
+  // Incremented to invalidate all outstanding access tokens for this user
+  tokenVersion Int @default(0)
+
   // Profile picture (bytes stored in separate Avatar model)
   avatarUpdatedAt DateTime?
 

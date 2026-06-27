@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middlewares/error.middleware';
 import { env } from '../utils/env';
+import { getTokenVersion, bumpTokenVersion } from './token.service';
 
 const SALT_ROUNDS = 12;
 
@@ -25,7 +26,7 @@ export async function registerUser(data: {
     await seedDefaultBadgesIfNeeded();
     await tryAwardBadge(user.id, 'First Steps');
 
-    const tokens = generateTokens(user.id);
+    const tokens = generateTokens(user.id, 0);
     await storeRefreshToken(user.id, tokens.refreshToken);
     return { user, ...tokens };
 }
@@ -37,7 +38,7 @@ export async function loginUser(email: string, password: string) {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new AppError(401, 'Invalid email or password');
 
-    const tokens = generateTokens(user.id);
+    const tokens = generateTokens(user.id, user.tokenVersion);
     await storeRefreshToken(user.id, tokens.refreshToken);
 
     const { password: _, ...safeUser } = user;
@@ -59,7 +60,8 @@ export async function refreshAccessToken(refreshToken: string) {
 
     // Rotate refresh token
     await prisma.refreshToken.delete({ where: { id: stored.id } });
-    const tokens = generateTokens(decoded.userId);
+    const tokenVersion = await getTokenVersion(decoded.userId);
+    const tokens = generateTokens(decoded.userId, tokenVersion);
     await storeRefreshToken(decoded.userId, tokens.refreshToken);
     return tokens;
 }
@@ -68,10 +70,15 @@ export async function logoutUser(refreshToken: string) {
     await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
 }
 
+export async function logoutAllDevices(userId: string) {
+    await prisma.refreshToken.deleteMany({ where: { userId } });
+    await bumpTokenVersion(userId);
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────
 
-function generateTokens(userId: string) {
-    const accessToken = jwt.sign({ userId }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as any });
+function generateTokens(userId: string, tokenVersion: number) {
+    const accessToken = jwt.sign({ userId, tv: tokenVersion }, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN as any });
     const refreshToken = jwt.sign({ userId }, env.JWT_REFRESH_SECRET, { expiresIn: env.JWT_REFRESH_EXPIRES_IN as any });
     return { accessToken, refreshToken };
 }

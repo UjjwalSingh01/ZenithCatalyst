@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { validate } from '../middlewares/validate.middleware';
 import { authLimiter } from '../middlewares/rateLimiter.middleware';
+import { authenticate, AuthRequest } from '../middlewares/auth.middleware';
 import { registerSchema, loginSchema, refreshSchema } from '../utils/schemas';
 import * as authService from '../services/auth.service';
 import { AppError } from '../middlewares/error.middleware';
@@ -32,6 +33,13 @@ router.post('/logout', validate(refreshSchema), async (req, res, next) => {
     try {
         await authService.logoutUser(req.body.refreshToken);
         res.json({ success: true, message: 'Logged out successfully' });
+    } catch (err) { next(err); }
+});
+
+router.post('/logout-all', authenticate, async (req: AuthRequest, res, next) => {
+    try {
+        await authService.logoutAllDevices(req.userId!);
+        res.json({ success: true, message: 'Logged out of all devices' });
     } catch (err) { next(err); }
 });
 

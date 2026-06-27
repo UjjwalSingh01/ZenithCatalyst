@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import {
-    fetchProfile, updateProfile, changePassword, deleteAccount, uploadAvatar, avatarUrl, User,
+    fetchProfile, updateProfile, changePassword, deleteAccount, uploadAvatar, avatarUrl, logoutAllDevices, User,
 } from '../lib/queries';
 import { useAuth } from '../contexts/AuthContext';
-import { Star, Flame, Trophy, Camera, AlertTriangle } from 'lucide-react';
+import { Star, Flame, Trophy, Camera, AlertTriangle, MonitorSmartphone } from 'lucide-react';
 
 function errMsg(err: unknown, fallback: string): string {
     const ax = err as AxiosError<{ message?: string }>;
@@ -42,6 +42,7 @@ export default function Profile() {
             <BadgesCard profile={profile} />
             <EditProfileCard profile={profile} onSaved={async () => { await refreshUser(); qc.invalidateQueries({ queryKey: ['profile'] }); }} />
             <ChangePasswordCard />
+            <ActiveSessionsCard onLoggedOut={async () => { await logout(); navigate('/login'); }} />
             <DangerZoneCard onDeleted={async () => { await logout(); navigate('/login'); }} />
         </div>
     );
@@ -244,6 +245,31 @@ function ChangePasswordCard() {
                 </button>
             </div>
         </form>
+    );
+}
+
+// ─── Active sessions ───────────────────────────────────────────────
+function ActiveSessionsCard({ onLoggedOut }: { onLoggedOut: () => Promise<void> }) {
+    const [error, setError] = useState('');
+    const mut = useMutation({
+        mutationFn: logoutAllDevices,
+        onSuccess: () => onLoggedOut(),
+        onError: (err) => setError(errMsg(err, 'Failed to log out other devices')),
+    });
+
+    return (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+            <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <MonitorSmartphone size={18} /> Active Sessions
+            </h3>
+            <p className="text-secondary" style={{ marginBottom: '1rem' }}>
+                Sign out everywhere — including this device. Use this if you've logged in on a shared or lost device.
+            </p>
+            <button className="btn btn-secondary" onClick={() => { setError(''); mut.mutate(); }} disabled={mut.isPending}>
+                {mut.isPending ? 'Signing out…' : 'Log out all devices'}
+            </button>
+            {error && <p className="text-sm" style={{ marginTop: '0.75rem', color: 'var(--error)' }}>{error}</p>}
+        </div>
     );
 }
 
