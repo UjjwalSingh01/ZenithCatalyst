@@ -37,7 +37,7 @@ async function setCache(key: string, data: unknown, ttlSeconds = CACHE_TTL): Pro
 async function callGemini(systemPrompt: string, userPrompt: string, temperature = 0.7): Promise<string> {
     const model = genai.models;
     const response = await model.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] }],
         config: { temperature, maxOutputTokens: 2048 },
     });

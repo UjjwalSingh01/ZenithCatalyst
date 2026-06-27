@@ -57,7 +57,11 @@ model User {
   currentStreak    Int @default(0)
   longestStreak    Int @default(0)
 
+  // Profile picture (bytes stored in separate Avatar model)
+  avatarUpdatedAt DateTime?
+
   // Relations
+  avatar         Avatar?
   habits         Habit[]         @relation("UserHabits")
   moodLogs       MoodLog[]
   aiInsights     AIInsight[]
@@ -75,6 +79,14 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+model Avatar {
+  userId    String   @id
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  data      Bytes
+  mimeType  String
+  updatedAt DateTime @updatedAt
 }
 
 // ─── Habits ────────────────────────────────────────────────────────

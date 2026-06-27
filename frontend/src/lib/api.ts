@@ -66,5 +66,5 @@ api.interceptors.response.use(
     }
 );
 
-export { setTokens, clearTokens };
+export { setTokens, clearTokens, BASE_URL };
 export default api;

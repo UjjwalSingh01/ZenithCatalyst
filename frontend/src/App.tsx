@@ -9,6 +9,7 @@ import Habits from './pages/Habits';
 import Analytics from './pages/Analytics';
 import Coaching from './pages/Coaching';
 import Reminders from './pages/Reminders';
+import Profile from './pages/Profile';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, isLoading } = useAuth();
@@ -42,6 +43,7 @@ export default function App() {
                     <Route path="analytics" element={<Analytics />} />
                     <Route path="coaching" element={<Coaching />} />
                     <Route path="reminders" element={<Reminders />} />
+                    <Route path="profile" element={<Profile />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/app" replace />} />
             </Routes>

@@ -18,6 +18,19 @@ export const refreshSchema = z.object({
     refreshToken: z.string().min(1),
 });
 
+// ─── Profile ───────────────────────────────────────────────────────
+
+export const updateProfileSchema = z.object({
+    firstName: z.string().min(1).max(50).optional(),
+    lastName: z.string().max(50).optional().nullable(),
+    email: z.string().email().optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'No fields to update' });
+
+export const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
 // ─── Reminder Config (shared by habit schemas) ─────────────────────
 
 export const reminderConfigSchema = z.object({

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { fetchProfile } from '../lib/queries';
-import { Home, CheckSquare, BarChart2, Bot, Bell, Zap, Star, Flame, Trophy, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { fetchProfile, avatarUrl } from '../lib/queries';
+import { Home, CheckSquare, BarChart2, Bot, Bell, User, Zap, Star, Flame, Trophy, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const navItems = [
     { to: '/app/home', icon: <Home size={20} />, label: 'Home' },
@@ -11,6 +11,7 @@ const navItems = [
     { to: '/app/analytics', icon: <BarChart2 size={20} />, label: 'Analytics' },
     { to: '/app/coaching', icon: <Bot size={20} />, label: 'AI Coach' },
     { to: '/app/reminders', icon: <Bell size={20} />, label: 'Reminders' },
+    { to: '/app/profile', icon: <User size={20} />, label: 'Profile' },
 ];
 
 export default function AppLayout() {
@@ -64,10 +65,12 @@ export default function AppLayout() {
 
                 {/* User XP Card */}
                 {sidebarOpen && profile && (
-                    <div style={{ margin: '1rem', padding: '1rem', background: 'var(--gradient-card)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12 }}>
+                    <Link to="/app/profile" style={{ display: 'block', textDecoration: 'none', color: 'inherit', margin: '1rem', padding: '1rem', background: 'var(--gradient-card)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 }}>
-                                {level}
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 }}>
+                                {profile.avatarUpdatedAt
+                                    ? <img src={avatarUrl(profile.id, profile.avatarUpdatedAt)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : level}
                             </div>
                             <div style={{ overflow: 'hidden' }}>
                                 <div style={{ fontWeight: 700, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.firstName}</div>
@@ -80,7 +83,7 @@ export default function AppLayout() {
                             <div className="progress-fill" style={{ width: `${progressToNext}%` }} />
                         </div>
                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.3rem', textAlign: 'right' }}>{progressToNext}/100 to Lv {level + 1}</div>
-                    </div>
+                    </Link>
                 )}
 
                 {/* Nav */}

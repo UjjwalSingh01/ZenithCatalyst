@@ -1,4 +1,4 @@
-import api, { setTokens, clearTokens } from './api';
+import api, { setTokens, clearTokens, BASE_URL } from './api';
 
 export interface User {
     id: string;
@@ -10,6 +10,7 @@ export interface User {
     currentStreak: number;
     longestStreak: number;
     createdAt: string;
+    avatarUpdatedAt?: string | null;
     badges: Array<{ id: string; earnedAt: string; badge: { name: string; icon: string; description: string } }>;
     quests: Array<{ id: string; title: string; description: string; xpReward: number; isCompleted: boolean }>;
 }
@@ -43,6 +44,32 @@ export async function logout() {
 export async function fetchProfile(): Promise<User> {
     const res = await api.get('/profile/me');
     return res.data.data;
+}
+
+export async function updateProfile(data: { firstName?: string; lastName?: string | null; email?: string }) {
+    const res = await api.patch('/profile', data);
+    return res.data.data;
+}
+
+export async function changePassword(data: { currentPassword: string; newPassword: string }) {
+    const res = await api.patch('/profile/password', data);
+    return res.data;
+}
+
+export async function deleteAccount() {
+    await api.delete('/profile');
+}
+
+export async function uploadAvatar(file: File) {
+    const fd = new FormData();
+    fd.append('avatar', file);
+    const res = await api.post('/profile/avatar', fd);
+    return res.data.data;
+}
+
+// Public avatar URL for use in <img src>. `v` (avatarUpdatedAt) busts the cache.
+export function avatarUrl(userId: string, v?: string | null): string {
+    return `${BASE_URL}/profile/avatar/${userId}${v ? `?v=${encodeURIComponent(v)}` : ''}`;
 }
 
 // ─── Habits ────────────────────────────────────────────────────────
