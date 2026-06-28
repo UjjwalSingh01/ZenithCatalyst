@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchHabits, createHabit, deleteHabit, updateHabit, parseHabitFromText } from '../lib/queries';
+import { useToast } from '../contexts/ToastContext';
+import { errMsg } from '../lib/errors';
 import { AlertCircle, ChevronUp, ChevronRight, ChevronDown, Brain, ListTodo, Edit2, Trash2, Pin, Bell, BellOff, Clock } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#22c55e', '#14b8a6', '#3b82f6'];
@@ -363,22 +365,26 @@ export default function Habits() {
     const [editHabit, setEditHabit] = useState<any>(null);
     const [filter, setFilter] = useState<string>('all');
     const qc = useQueryClient();
+    const toast = useToast();
 
     const { data: habits = [], isLoading } = useQuery({ queryKey: ['habits'], queryFn: () => fetchHabits() });
 
     const createMut = useMutation({
         mutationFn: createHabit,
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ['habits'] }); setShowModal(false); qc.invalidateQueries({ queryKey: ['profile'] }); },
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ['habits'] }); setShowModal(false); qc.invalidateQueries({ queryKey: ['profile'] }); toast.success('Habit created'); },
+        onError: (e) => toast.error(errMsg(e, 'Failed to create habit')),
     });
 
     const updateMut = useMutation({
         mutationFn: ({ id, data }: { id: string; data: any }) => updateHabit(id, data),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ['habits'] }); setEditHabit(null); },
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ['habits'] }); setEditHabit(null); toast.success('Habit updated'); },
+        onError: (e) => toast.error(errMsg(e, 'Failed to update habit')),
     });
 
     const deleteMut = useMutation({
         mutationFn: deleteHabit,
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['habits'] }),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ['habits'] }); toast.success('Habit deleted'); },
+        onError: (e) => toast.error(errMsg(e, 'Failed to delete habit')),
     });
 
     const filtered = habits.filter((h: any) => filter === 'all' || h.category === filter);

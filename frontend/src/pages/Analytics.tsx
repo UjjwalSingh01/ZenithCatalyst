@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { fetchAnalytics, fetchMoodCorrelation, upsertMood } from '../lib/queries';
+import { useToast } from '../contexts/ToastContext';
+import { errMsg } from '../lib/errors';
 import { BarChart3, CheckCircle2, Pin, Target, Frown, Meh, Smile, Battery, BatteryCharging, BatteryFull, Zap, ZapOff } from 'lucide-react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -44,7 +46,12 @@ export default function Analytics() {
         staleTime: 5 * 60_000,
     });
 
-    const moodMut = useMutation({ mutationFn: upsertMood });
+    const toast = useToast();
+    const moodMut = useMutation({
+        mutationFn: upsertMood,
+        onSuccess: () => toast.success('Mood logged'),
+        onError: (e) => toast.error(errMsg(e, 'Failed to log mood')),
+    });
 
     const timeline = data?.timeline?.filter((t: any) => t.total > 0) ?? [];
     const habitStats = data?.habitStats ?? [];

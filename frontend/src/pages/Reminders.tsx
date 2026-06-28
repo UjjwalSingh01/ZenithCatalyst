@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
+import { useToast } from '../contexts/ToastContext';
+import { errMsg } from '../lib/errors';
 
 // ─── API Calls ────────────────────────────────────────────────────
 
@@ -167,14 +169,15 @@ export default function Reminders() {
     const [showModal, setShowModal] = useState(false);
     const [editReminder, setEditReminder] = useState<any>(null);
     const qc = useQueryClient();
+    const toast = useToast();
 
     const { data: reminders = [], isLoading } = useQuery({ queryKey: ['reminders'], queryFn: fetchReminders });
     const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: async () => { const r = await api.get('/habits'); return r.data.data; }, staleTime: 60_000 });
 
-    const createMut = useMutation({ mutationFn: createReminder, onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); setShowModal(false); } });
-    const updateMut = useMutation({ mutationFn: ({ id, data }: { id: string; data: any }) => updateReminder(id, data), onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); setEditReminder(null); } });
-    const deleteMut = useMutation({ mutationFn: deleteReminder, onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }) });
-    const toggleMut = useMutation({ mutationFn: ({ id, status }: { id: string; status: string }) => updateReminder(id, { status: status === 'active' ? 'paused' : 'active' }), onSuccess: () => qc.invalidateQueries({ queryKey: ['reminders'] }) });
+    const createMut = useMutation({ mutationFn: createReminder, onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); setShowModal(false); toast.success('Reminder created'); }, onError: (e) => toast.error(errMsg(e, 'Failed to create reminder')) });
+    const updateMut = useMutation({ mutationFn: ({ id, data }: { id: string; data: any }) => updateReminder(id, data), onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); setEditReminder(null); toast.success('Reminder updated'); }, onError: (e) => toast.error(errMsg(e, 'Failed to update reminder')) });
+    const deleteMut = useMutation({ mutationFn: deleteReminder, onSuccess: () => { qc.invalidateQueries({ queryKey: ['reminders'] }); toast.success('Reminder deleted'); }, onError: (e) => toast.error(errMsg(e, 'Failed to delete reminder')) });
+    const toggleMut = useMutation({ mutationFn: ({ id, status }: { id: string; status: string }) => updateReminder(id, { status: status === 'active' ? 'paused' : 'active' }), onSuccess: (_d, v) => { qc.invalidateQueries({ queryKey: ['reminders'] }); toast.success(v.status === 'active' ? 'Reminder paused' : 'Reminder resumed'); }, onError: (e) => toast.error(errMsg(e, 'Failed to update reminder')) });
 
     const formatNext = (ts: number | null) => ts ? new Date(ts).toLocaleString() : '—';
 

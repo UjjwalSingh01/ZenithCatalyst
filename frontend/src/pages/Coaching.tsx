@@ -5,6 +5,8 @@ import {
     sendChatMessage, fetchChatHistory, generateAIQuests, saveQuests,
     fetchProfile, createHabit
 } from '../lib/queries';
+import { useToast } from '../contexts/ToastContext';
+import { errMsg } from '../lib/errors';
 import ReactMarkdown from 'react-markdown';
 
 const TABS = [
@@ -37,6 +39,7 @@ export default function Coaching() {
     const [range, setRange] = useState('month');
     const chatEndRef = useRef<HTMLDivElement>(null);
     const qc = useQueryClient();
+    const toast = useToast();
 
     const { data: chatHistory = [] } = useQuery({
         queryKey: ['chat-history'],
@@ -80,21 +83,24 @@ export default function Coaching() {
                 return updated;
             });
         },
-        onError: () => {
+        onError: (err) => {
             setMessages((prev) => prev.filter((m) => !m.pending));
+            toast.error(errMsg(err, "Couldn't reach the AI coach"));
         },
     });
 
     const generateQuestsMut = useMutation({
         mutationFn: generateAIQuests,
         onSuccess: async (data) => {
-            if (data?.quests) { await saveQuests(data.quests); qc.invalidateQueries({ queryKey: ['profile'] }); }
+            if (data?.quests) { await saveQuests(data.quests); qc.invalidateQueries({ queryKey: ['profile'] }); toast.success('New quests generated'); }
         },
+        onError: (err) => toast.error(errMsg(err, 'Failed to generate quests')),
     });
 
     const addHabitMut = useMutation({
         mutationFn: (sug: any) => createHabit({ ...sug.habitData, aiGenerated: true, startDate: new Date().toISOString().split('T')[0], priority: 2, category: 'Health' }),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['habits'] }),
+        onSuccess: () => { qc.invalidateQueries({ queryKey: ['habits'] }); toast.success('Added to your habits'); },
+        onError: (err) => toast.error(errMsg(err, 'Failed to add habit')),
     });
 
     const sendChat = () => {

@@ -1,17 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AxiosError } from 'axios';
 import {
     fetchProfile, updateProfile, changePassword, deleteAccount, uploadAvatar, avatarUrl, logoutAllDevices, User,
 } from '../lib/queries';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { errMsg } from '../lib/errors';
 import { Star, Flame, Trophy, Camera, AlertTriangle, MonitorSmartphone } from 'lucide-react';
-
-function errMsg(err: unknown, fallback: string): string {
-    const ax = err as AxiosError<{ message?: string }>;
-    return ax?.response?.data?.message || fallback;
-}
 
 export default function Profile() {
     const qc = useQueryClient();
@@ -51,12 +47,12 @@ export default function Profile() {
 // ─── Identity + avatar ─────────────────────────────────────────────
 function IdentityCard({ profile, fileRef, onRefresh }: { profile: User; fileRef: React.RefObject<HTMLInputElement>; onRefresh: () => Promise<void> }) {
     const qc = useQueryClient();
-    const [error, setError] = useState('');
+    const toast = useToast();
 
     const avatarMut = useMutation({
         mutationFn: uploadAvatar,
-        onSuccess: async () => { setError(''); await onRefresh(); qc.invalidateQueries({ queryKey: ['profile'] }); },
-        onError: (err) => setError(errMsg(err, 'Failed to upload image')),
+        onSuccess: async () => { await onRefresh(); qc.invalidateQueries({ queryKey: ['profile'] }); toast.success('Profile photo updated'); },
+        onError: (err) => toast.error(errMsg(err, 'Failed to upload image')),
     });
 
     const initials = `${profile.firstName?.[0] ?? ''}${profile.lastName?.[0] ?? ''}`.toUpperCase() || profile.firstName?.[0]?.toUpperCase() || '?';
@@ -93,7 +89,6 @@ function IdentityCard({ profile, fileRef, onRefresh }: { profile: User; fileRef:
                 <p className="text-secondary" style={{ marginBottom: '0.25rem' }}>{profile.email}</p>
                 <p className="text-muted text-sm">Member since {memberSince}</p>
                 {avatarMut.isPending && <p className="text-muted text-sm">Uploading…</p>}
-                {error && <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>}
             </div>
         </div>
     );
@@ -154,15 +149,15 @@ function BadgesCard({ profile }: { profile: User }) {
 
 // ─── Edit profile ──────────────────────────────────────────────────
 function EditProfileCard({ profile, onSaved }: { profile: User; onSaved: () => Promise<void> }) {
+    const toast = useToast();
     const [firstName, setFirstName] = useState(profile.firstName);
     const [lastName, setLastName] = useState(profile.lastName ?? '');
     const [email, setEmail] = useState(profile.email);
-    const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
     const mut = useMutation({
         mutationFn: () => updateProfile({ firstName, lastName: lastName || null, email }),
-        onSuccess: async () => { setMsg({ type: 'ok', text: 'Profile updated' }); await onSaved(); },
-        onError: (err) => setMsg({ type: 'err', text: errMsg(err, 'Failed to update profile') }),
+        onSuccess: async () => { toast.success('Profile updated'); await onSaved(); },
+        onError: (err) => toast.error(errMsg(err, 'Failed to update profile')),
     });
 
     const dirty = firstName !== profile.firstName || (lastName || '') !== (profile.lastName ?? '') || email !== profile.email;
@@ -170,7 +165,7 @@ function EditProfileCard({ profile, onSaved }: { profile: User; onSaved: () => P
     return (
         <form
             className="card" style={{ marginBottom: '1rem' }}
-            onSubmit={(e) => { e.preventDefault(); setMsg(null); mut.mutate(); }}
+            onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}
         >
             <h3 style={{ marginBottom: '1rem' }}>Edit Profile</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -187,7 +182,6 @@ function EditProfileCard({ profile, onSaved }: { profile: User; onSaved: () => P
                 <label className="label">Email</label>
                 <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-            {msg && <p className="text-sm" style={{ marginTop: '0.75rem', color: msg.type === 'ok' ? 'var(--success)' : 'var(--error)' }}>{msg.text}</p>}
             <div style={{ marginTop: '1rem' }}>
                 <button type="submit" className="btn btn-primary" disabled={!dirty || mut.isPending}>
                     {mut.isPending ? 'Saving…' : 'Save Changes'}
@@ -199,25 +193,26 @@ function EditProfileCard({ profile, onSaved }: { profile: User; onSaved: () => P
 
 // ─── Change password ───────────────────────────────────────────────
 function ChangePasswordCard() {
+    const toast = useToast();
     const [currentPassword, setCurrent] = useState('');
     const [newPassword, setNew] = useState('');
     const [confirm, setConfirm] = useState('');
-    const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+    const [clientError, setClientError] = useState('');
 
     const mut = useMutation({
         mutationFn: () => changePassword({ currentPassword, newPassword }),
         onSuccess: () => {
-            setMsg({ type: 'ok', text: 'Password changed. Other sessions have been logged out.' });
+            toast.success('Password changed — other sessions logged out');
             setCurrent(''); setNew(''); setConfirm('');
         },
-        onError: (err) => setMsg({ type: 'err', text: errMsg(err, 'Failed to change password') }),
+        onError: (err) => toast.error(errMsg(err, 'Failed to change password')),
     });
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        setMsg(null);
-        if (newPassword.length < 8) { setMsg({ type: 'err', text: 'New password must be at least 8 characters' }); return; }
-        if (newPassword !== confirm) { setMsg({ type: 'err', text: 'New passwords do not match' }); return; }
+        setClientError('');
+        if (newPassword.length < 8) { setClientError('New password must be at least 8 characters'); return; }
+        if (newPassword !== confirm) { setClientError('New passwords do not match'); return; }
         mut.mutate();
     };
 
@@ -238,7 +233,7 @@ function ChangePasswordCard() {
                     <input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
                 </div>
             </div>
-            {msg && <p className="text-sm" style={{ marginTop: '0.75rem', color: msg.type === 'ok' ? 'var(--success)' : 'var(--error)' }}>{msg.text}</p>}
+            {clientError && <p className="text-sm" style={{ marginTop: '0.75rem', color: 'var(--error)' }}>{clientError}</p>}
             <div style={{ marginTop: '1rem' }}>
                 <button type="submit" className="btn btn-primary" disabled={mut.isPending}>
                     {mut.isPending ? 'Updating…' : 'Update Password'}
@@ -250,11 +245,11 @@ function ChangePasswordCard() {
 
 // ─── Active sessions ───────────────────────────────────────────────
 function ActiveSessionsCard({ onLoggedOut }: { onLoggedOut: () => Promise<void> }) {
-    const [error, setError] = useState('');
+    const toast = useToast();
     const mut = useMutation({
         mutationFn: logoutAllDevices,
         onSuccess: () => onLoggedOut(),
-        onError: (err) => setError(errMsg(err, 'Failed to log out other devices')),
+        onError: (err) => toast.error(errMsg(err, 'Failed to log out other devices')),
     });
 
     return (
@@ -265,23 +260,22 @@ function ActiveSessionsCard({ onLoggedOut }: { onLoggedOut: () => Promise<void> 
             <p className="text-secondary" style={{ marginBottom: '1rem' }}>
                 Sign out everywhere — including this device. Use this if you've logged in on a shared or lost device.
             </p>
-            <button className="btn btn-secondary" onClick={() => { setError(''); mut.mutate(); }} disabled={mut.isPending}>
+            <button className="btn btn-secondary" onClick={() => mut.mutate()} disabled={mut.isPending}>
                 {mut.isPending ? 'Signing out…' : 'Log out all devices'}
             </button>
-            {error && <p className="text-sm" style={{ marginTop: '0.75rem', color: 'var(--error)' }}>{error}</p>}
         </div>
     );
 }
 
 // ─── Danger zone ───────────────────────────────────────────────────
 function DangerZoneCard({ onDeleted }: { onDeleted: () => Promise<void> }) {
+    const toast = useToast();
     const [showConfirm, setShowConfirm] = useState(false);
-    const [error, setError] = useState('');
 
     const mut = useMutation({
         mutationFn: deleteAccount,
         onSuccess: () => onDeleted(),
-        onError: (err) => setError(errMsg(err, 'Failed to delete account')),
+        onError: (err) => toast.error(errMsg(err, 'Failed to delete account')),
     });
 
     return (
@@ -292,8 +286,7 @@ function DangerZoneCard({ onDeleted }: { onDeleted: () => Promise<void> }) {
             <p className="text-secondary" style={{ marginBottom: '1rem' }}>
                 Deleting your account is permanent and removes all your habits, history, and data.
             </p>
-            <button className="btn btn-danger" onClick={() => { setError(''); setShowConfirm(true); }}>Delete Account</button>
-            {error && <p className="text-sm" style={{ marginTop: '0.75rem', color: 'var(--error)' }}>{error}</p>}
+            <button className="btn btn-danger" onClick={() => setShowConfirm(true)}>Delete Account</button>
 
             {showConfirm && (
                 <div className="modal-overlay" onClick={() => setShowConfirm(false)}>
