@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { errMsg } from '../lib/errors';
 
 // ─── API Calls ────────────────────────────────────────────────────
@@ -170,6 +171,7 @@ export default function Reminders() {
     const [editReminder, setEditReminder] = useState<any>(null);
     const qc = useQueryClient();
     const toast = useToast();
+    const confirm = useConfirm();
 
     const { data: reminders = [], isLoading } = useQuery({ queryKey: ['reminders'], queryFn: fetchReminders });
     const { data: habits = [] } = useQuery({ queryKey: ['habits'], queryFn: async () => { const r = await api.get('/habits'); return r.data.data; }, staleTime: 60_000 });
@@ -243,7 +245,7 @@ export default function Reminders() {
                                         </button>
                                     )}
                                     <button className="btn btn-sm btn-icon btn-ghost" onClick={() => setEditReminder(r)} title="Edit">✏️</button>
-                                    <button className="btn btn-sm btn-icon btn-danger" onClick={() => { if (confirm('Delete this reminder?')) deleteMut.mutate(r.id); }} title="Delete">🗑️</button>
+                                    <button className="btn btn-sm btn-icon btn-danger" onClick={async () => { if (await confirm({ title: 'Delete reminder?', message: 'This reminder will be permanently removed.', confirmText: 'Delete', danger: true })) deleteMut.mutate(r.id); }} title="Delete">🗑️</button>
                                 </div>
                             </div>
                         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchHabits, createHabit, deleteHabit, updateHabit, parseHabitFromText } from '../lib/queries';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { errMsg } from '../lib/errors';
 import { AlertCircle, ChevronUp, ChevronRight, ChevronDown, Brain, ListTodo, Edit2, Trash2, Pin, Bell, BellOff, Clock } from 'lucide-react';
 
@@ -366,6 +367,7 @@ export default function Habits() {
     const [filter, setFilter] = useState<string>('all');
     const qc = useQueryClient();
     const toast = useToast();
+    const confirm = useConfirm();
 
     const { data: habits = [], isLoading } = useQuery({ queryKey: ['habits'], queryFn: () => fetchHabits() });
 
@@ -428,7 +430,7 @@ export default function Habits() {
                     {filtered.map((habit: any) => (
                         <HabitCard key={habit.id} habit={habit}
                             onEdit={(h) => setEditHabit(h)}
-                            onDelete={(id) => { if (confirm('Delete this habit?')) deleteMut.mutate(id); }} />
+                            onDelete={async (id) => { if (await confirm({ title: 'Delete habit?', message: 'This habit and its history will be permanently removed.', confirmText: 'Delete', danger: true })) deleteMut.mutate(id); }} />
                     ))}
                 </div>
             )}
