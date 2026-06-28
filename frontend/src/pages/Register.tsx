@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import GoogleButton from '../components/GoogleButton';
 
 export default function Register() {
     const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' });
@@ -64,6 +65,8 @@ export default function Register() {
                             {loading ? <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> Creating account...</> : 'Create Account →'}
                         </button>
                     </form>
+
+                    <GoogleButton label="Sign up with Google" />
                 </div>
 
                 <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>

@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext';
 import AppLayout from './components/AppLayout';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import GoogleCallback from './pages/GoogleCallback';
 import Homepage from './pages/Homepage';
 import Habits from './pages/Habits';
 import Analytics from './pages/Analytics';
@@ -29,6 +30,7 @@ export default function App() {
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/auth/google/callback" element={<GoogleCallback />} />
                 <Route
                     path="/app"
                     element={

@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../utils/prisma';
 import { AppError } from '../middlewares/error.middleware';
 import { env } from '../utils/env';
@@ -34,6 +35,8 @@ export async function registerUser(data: {
 export async function loginUser(email: string, password: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new AppError(401, 'Invalid email or password');
+
+    if (!user.password) throw new AppError(401, 'This account uses Google sign-in. Please continue with Google.');
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new AppError(401, 'Invalid email or password');
@@ -73,6 +76,74 @@ export async function logoutUser(refreshToken: string) {
 export async function logoutAllDevices(userId: string) {
     await prisma.refreshToken.deleteMany({ where: { userId } });
     await bumpTokenVersion(userId);
+}
+
+// ─── Google OAuth (server-side redirect flow) ───────────────────────
+
+function getOAuthClient() {
+    return new OAuth2Client(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, env.GOOGLE_CALLBACK_URL);
+}
+
+export function isGoogleConfigured(): boolean {
+    return Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_CALLBACK_URL);
+}
+
+export function getGoogleAuthUrl(state: string): string {
+    return getOAuthClient().generateAuthUrl({
+        access_type: 'online',
+        scope: ['openid', 'email', 'profile'],
+        prompt: 'select_account',
+        state,
+    });
+}
+
+/**
+ * Exchanges the OAuth `code` for Google tokens, verifies the ID token, then
+ * finds-or-creates the user (auto-linking by verified email) and issues our
+ * own access/refresh tokens.
+ */
+export async function handleGoogleCallback(code: string) {
+    const client = getOAuthClient();
+    const { tokens } = await client.getToken(code);
+    if (!tokens.id_token) throw new AppError(401, 'Google did not return an ID token');
+
+    const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: env.GOOGLE_CLIENT_ID });
+    const payload = ticket.getPayload();
+    if (!payload?.email || !payload.email_verified) {
+        throw new AppError(401, 'Google account email is not verified');
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email;
+
+    // 1) Already linked to this Google account.
+    let user = await prisma.user.findUnique({ where: { googleId } });
+
+    // 2) Otherwise auto-link to an existing account with the same (verified) email.
+    if (!user) {
+        const byEmail = await prisma.user.findUnique({ where: { email } });
+        if (byEmail) {
+            user = await prisma.user.update({ where: { id: byEmail.id }, data: { googleId } });
+        }
+    }
+
+    // 3) Otherwise create a fresh OAuth-only account.
+    if (!user) {
+        user = await prisma.user.create({
+            data: {
+                email,
+                googleId,
+                firstName: payload.given_name || payload.name || 'Friend',
+                lastName: payload.family_name || null,
+            },
+        });
+        await seedDefaultBadgesIfNeeded();
+        await tryAwardBadge(user.id, 'First Steps');
+    }
+
+    const authTokens = generateTokens(user.id, user.tokenVersion);
+    await storeRefreshToken(user.id, authTokens.refreshToken);
+    return authTokens;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────

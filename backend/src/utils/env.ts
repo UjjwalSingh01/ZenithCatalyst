@@ -14,6 +14,10 @@ const envSchema = z.object({
     LOG_LEVEL: z.string().default('info'),
     JWT_EXPIRES_IN: z.string().default('15m'),
     JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+    // Google OAuth (optional — feature is disabled when unset)
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
+    GOOGLE_CALLBACK_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

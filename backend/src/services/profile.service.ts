@@ -41,6 +41,7 @@ export async function updateProfile(
 export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new AppError(404, 'User not found');
+    if (!user.password) throw new AppError(400, 'This account uses Google sign-in and has no password to change');
 
     const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) throw new AppError(401, 'Current password is incorrect');

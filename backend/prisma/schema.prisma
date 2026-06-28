@@ -47,7 +47,8 @@ model User {
   firstName String
   lastName  String?
   email     String   @unique
-  password  String
+  password  String? // null for OAuth-only (e.g. Google) accounts
+  googleId  String?  @unique // linked Google account subject id
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

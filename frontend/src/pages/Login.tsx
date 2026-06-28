@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import GoogleButton from '../components/GoogleButton';
+
+const ERROR_MESSAGES: Record<string, string> = {
+    google: 'Google sign-in failed. Please try again.',
+    google_unavailable: 'Google sign-in is not configured on this server.',
+};
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -9,6 +15,12 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+
+    useEffect(() => {
+        const e = searchParams.get('error');
+        if (e) setError(ERROR_MESSAGES[e] || 'Sign-in failed. Please try again.');
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,6 +67,8 @@ export default function Login() {
                             {loading ? <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> Signing in...</> : 'Sign In'}
                         </button>
                     </form>
+
+                    <GoogleButton />
                 </div>
 
                 <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
