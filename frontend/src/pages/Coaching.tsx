@@ -7,6 +7,7 @@ import {
 } from '../lib/queries';
 import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
+import { TextLinesSkeleton, CardListSkeleton } from '../components/Skeleton';
 import ReactMarkdown from 'react-markdown';
 
 const TABS = [
@@ -211,7 +212,8 @@ export default function Coaching() {
                 <div style={{ flex: 1, overflowY: 'auto' }}>
                     {summaryLoading ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 60 }} />)}
+                            <TextLinesSkeleton lines={3} />
+                            <TextLinesSkeleton lines={4} />
                             <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Generating AI summary...</p>
                         </div>
                     ) : summary?.summary ? (
@@ -234,7 +236,7 @@ export default function Coaching() {
             {activeTab === 'insights' && (
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {insightsLoading ? (
-                        Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 80 }} />)
+                        <CardListSkeleton count={4} />
                     ) : (
                         <>
                             {insights?.advancements?.length > 0 && (
@@ -298,7 +300,7 @@ export default function Coaching() {
             {activeTab === 'forecast' && (
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {forecastLoading ? (
-                        Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 80 }} />)
+                        <CardListSkeleton count={3} />
                     ) : (
                         <>
                             {/* 7-day bar forecast */}

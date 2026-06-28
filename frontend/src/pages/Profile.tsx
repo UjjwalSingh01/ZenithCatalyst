@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
+import { ProfileSkeleton } from '../components/Skeleton';
 import { Star, Flame, Trophy, Camera, AlertTriangle, MonitorSmartphone } from 'lucide-react';
 
 export default function Profile() {
@@ -20,8 +21,11 @@ export default function Profile() {
     if (isLoading || !profile) {
         return (
             <div style={{ animation: 'fadeIn 0.35s ease', maxWidth: 900, margin: '0 auto' }}>
-                <div className="skeleton" style={{ height: 160, marginBottom: '1rem' }} />
-                <div className="skeleton" style={{ height: 220 }} />
+                <div style={{ marginBottom: '2rem' }}>
+                    <h1>Profile</h1>
+                    <p className="text-secondary">Manage your account, stats, and preferences</p>
+                </div>
+                <ProfileSkeleton />
             </div>
         );
     }

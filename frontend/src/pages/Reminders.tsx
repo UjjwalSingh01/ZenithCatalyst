@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { ReminderListSkeleton } from '../components/Skeleton';
 import { errMsg } from '../lib/errors';
 
 // ─── API Calls ────────────────────────────────────────────────────
@@ -205,9 +206,7 @@ export default function Reminders() {
 
             {/* List */}
             {isLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {Array.from({ length: 3 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 100 }} />)}
-                </div>
+                <ReminderListSkeleton count={3} />
             ) : reminders.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>⏰</div>

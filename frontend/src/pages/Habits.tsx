@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchHabits, createHabit, deleteHabit, updateHabit, parseHabitFromText } from '../lib/queries';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
+import { HabitListSkeleton } from '../components/Skeleton';
 import { errMsg } from '../lib/errors';
 import { AlertCircle, ChevronUp, ChevronRight, ChevronDown, Brain, ListTodo, Edit2, Trash2, Pin, Bell, BellOff, Clock } from 'lucide-react';
 
@@ -415,9 +416,7 @@ export default function Habits() {
 
             {/* Habits Grid */}
             {isLoading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    {Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 90 }} />)}
-                </div>
+                <HabitListSkeleton count={4} />
             ) : filtered.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
                     <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}><Pin size={48} className="text-secondary opacity-50" /></div>

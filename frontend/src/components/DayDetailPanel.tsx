@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { X, CheckCircle2, Circle, AlertCircle, ChevronDown } from 'lucide-react';
 import { useHabitsByDate, useToggleHabit, useToggleSubHabit } from '../lib/hooks';
+import { DayHabitListSkeleton } from './Skeleton';
 import clsx from 'clsx';
 
 interface Props {
@@ -78,9 +79,7 @@ export default function DayDetailPanel({ date, onClose }: Props) {
 
             {/* Habits */}
             {isLoading ? (
-                <div className="space-y-3">
-                    {[1, 2, 3].map((i) => <div key={i} className="h-20 rounded-xl bg-white/5 animate-pulse" />)}
-                </div>
+                <DayHabitListSkeleton count={3} />
             ) : !habits?.length ? (
                 <div className="text-center py-12">
                     <Circle size={28} className="text-dark-500 mx-auto mb-3" />

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { fetchAnalytics, fetchMoodCorrelation, upsertMood } from '../lib/queries';
 import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
+import { StatCardsSkeleton } from '../components/Skeleton';
 import { BarChart3, CheckCircle2, Pin, Target, Frown, Meh, Smile, Battery, BatteryCharging, BatteryFull, Zap, ZapOff } from 'lucide-react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -80,7 +81,7 @@ export default function Analytics() {
             {/* Stat Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
                 {isLoading ? (
-                    Array.from({ length: 4 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 100 }} />)
+                    <StatCardsSkeleton count={4} />
                 ) : (
                     <>
                         <StatCard icon={<BarChart3 className="w-8 h-8 mx-auto mb-1 text-indigo-400" />} label="Overall Rate" value={`${summary.overallRate ?? 0}%`} color={summary.overallRate >= 70 ? '#22c55e' : '#f59e0b'} />
