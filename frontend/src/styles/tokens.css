@@ -1,0 +1,80 @@
+/* ═══════════════════════════════════════════════════════════════════
+   EMBER — design tokens
+   Thesis: a habit is a kept fire. You feed it daily or it goes out.
+
+   The semantic spine of this system: completion is not green and
+   failure is not red. A finished habit is LIT. A missed one is COLD.
+   Red is reserved exclusively for destructive actions, so it never
+   loses its meaning. Cyan is reserved exclusively for the AI, so the
+   machine never masquerades as the hearth.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Ground & surfaces ────────────────────────────────────────── */
+  --ground: #16100f;
+  --ground-deep: #0e0a09;
+  --surface: #221816;
+  --surface-2: #2e211e;
+  --surface-sunk: #1a1211;
+
+  --line: rgba(245, 235, 228, 0.09);
+  --line-bright: rgba(245, 235, 228, 0.18);
+
+  /* ── Fire ─────────────────────────────────────────────────────── */
+  --copper: #c97b4e;
+  --copper-lit: #e2996a;
+  --copper-deep: #8f5334;
+  --gold: #f2b544;
+  --gold-lit: #ffd27d;
+
+  /* ── The cold end ─────────────────────────────────────────────── */
+  --cold: #5a6b78;
+  --cold-dim: #3d4a53;
+
+  /* ── Reserved ─────────────────────────────────────────────────── */
+  --cyan: #4fc3d9; /* AI surfaces ONLY */
+  --cyan-dim: rgba(79, 195, 217, 0.14);
+  --cinder: #d6432f; /* destructive actions ONLY */
+
+  /* ── Ink ──────────────────────────────────────────────────────── */
+  --ink: #f5ebe4;
+  --ink-dim: rgba(245, 235, 228, 0.62);
+  --ash: rgba(245, 235, 228, 0.38);
+
+  /* ── Semantic aliases ─────────────────────────────────────────── */
+  --lit: var(--gold);
+  --burning: var(--copper);
+  --out: var(--cold);
+
+  /* ── Heat ramp — drives coals, rings, bars, forecasts ─────────── */
+  --heat-0: #2a1f1c; /* dead coal */
+  --heat-1: #4a3128;
+  --heat-2: #8f5334;
+  --heat-3: #c97b4e;
+  --heat-4: #f2b544;
+
+  /* ── Glow ─────────────────────────────────────────────────────── */
+  --glow-ember: 0 0 24px rgba(242, 181, 68, 0.28);
+  --glow-copper: 0 0 20px rgba(201, 123, 78, 0.3);
+  --glow-cyan: 0 0 20px rgba(79, 195, 217, 0.22);
+
+  /* ── Type ─────────────────────────────────────────────────────── */
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Inter Tight', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Elevation — warm shadows, never neutral black ────────────── */
+  --shadow-sm: 0 1px 3px rgba(10, 5, 3, 0.5);
+  --shadow-md: 0 6px 20px rgba(10, 5, 3, 0.55);
+  --shadow-lg: 0 16px 48px rgba(10, 5, 3, 0.65);
+
+  /* ── Metrics ──────────────────────────────────────────────────── */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 20px;
+  --sidebar-w: 244px;
+  --sidebar-w-collapsed: 76px;
+  --rail-h: 64px; /* mobile bottom rail */
+
+  color-scheme: dark;
+}

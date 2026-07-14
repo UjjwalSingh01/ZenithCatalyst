@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import GoogleButton from '../components/GoogleButton';
+import AuthShell from '../components/AuthShell';
+import Spinner from '../components/Spinner';
 
-const ERROR_MESSAGES: Record<string, string> = {
-    google: 'Google sign-in failed. Please try again.',
-    google_unavailable: 'Google sign-in is not configured on this server.',
+const ERRORS: Record<string, string> = {
+    google: 'Google sign-in did not complete. Try again.',
+    google_unavailable: 'Google sign-in is not set up on this server.',
 };
 
 export default function Login() {
@@ -15,66 +18,73 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [params] = useSearchParams();
 
     useEffect(() => {
-        const e = searchParams.get('error');
-        if (e) setError(ERROR_MESSAGES[e] || 'Sign-in failed. Please try again.');
-    }, [searchParams]);
+        const e = params.get('error');
+        if (e) setError(ERRORS[e] || 'Sign-in did not complete. Try again.');
+    }, [params]);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const submit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError(''); setLoading(true);
+        setError('');
+        setLoading(true);
         try {
             await login(email, password);
             navigate('/app/home');
         } catch (err: any) {
-            setError(err?.response?.data?.message || 'Login failed. Please check your credentials.');
-        } finally { setLoading(false); }
+            setError(err?.response?.data?.message || 'That email and password do not match an account.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-            <div style={{ width: '100%', maxWidth: 420, animation: 'fadeIn 0.4s ease' }}>
-                {/* Logo */}
-                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>⚡</div>
-                    <h1 style={{ background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.25rem' }}>Zenith Catalyst</h1>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Your AI-powered catalyst for peak performance and lasting habits.</p>
+        <AuthShell
+            title="Welcome back"
+            subtitle="Pick up where you left off."
+            footer={<>No account yet? <Link to="/register">Start keeping one</Link></>}
+        >
+            {error && (
+                <div className="banner banner--error" style={{ marginBottom: '1rem' }}>
+                    <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span>{error}</span>
                 </div>
+            )}
 
-                {/* Card */}
-                <div className="card" style={{ padding: '2rem' }}>
-                    <h2 style={{ marginBottom: '0.25rem' }}>Welcome back</h2>
-                    <p style={{ marginBottom: '1.75rem', fontSize: '0.875rem' }}>Sign in to continue your journey</p>
-
-                    {error && (
-                        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '0.75rem 1rem', marginBottom: '1rem', color: 'var(--error)', fontSize: '0.875rem' }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div>
-                            <label className="label">Email</label>
-                            <input className="input" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                        </div>
-                        <div>
-                            <label className="label">Password</label>
-                            <input className="input" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                        </div>
-                        <button className="btn btn-primary btn-lg" type="submit" disabled={loading} style={{ marginTop: '0.5rem', width: '100%', justifyContent: 'center' }}>
-                            {loading ? <><span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> Signing in...</> : 'Sign In'}
-                        </button>
-                    </form>
-
-                    <GoogleButton />
+            <form onSubmit={submit} className="stack stack--lg">
+                <div>
+                    <label className="label" htmlFor="email">Email</label>
+                    <input
+                        id="email"
+                        className="input"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                    />
                 </div>
+                <div>
+                    <label className="label" htmlFor="password">Password</label>
+                    <input
+                        id="password"
+                        className="input"
+                        type="password"
+                        autoComplete="current-password"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                    />
+                </div>
+                <button className="btn btn--primary btn--lg" type="submit" disabled={loading}>
+                    {loading ? <><Spinner /> Signing in…</> : 'Sign in'}
+                </button>
+            </form>
 
-                <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                    No account? <Link to="/register" style={{ color: 'var(--brand-400)', fontWeight: 600, textDecoration: 'none' }}>Get started free →</Link>
-                </p>
-            </div>
-        </div>
+            <GoogleButton />
+        </AuthShell>
     );
 }

@@ -1,148 +1,186 @@
-import React, { useState } from 'react';
-import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useState } from 'react';
+import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
+import {
+    Home, CheckSquare, BarChart2, Bot, Bell, User,
+    Flame, Trophy, LogOut, PanelLeftClose, PanelLeftOpen,
+} from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { fetchProfile, avatarUrl } from '../lib/queries';
-import { Home, CheckSquare, BarChart2, Bot, Bell, User, Zap, Star, Flame, Trophy, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { springs, useMotionOK } from '../lib/motion';
+import Counter from './Counter';
+import PageTransition from './PageTransition';
+import LevelUp from './LevelUp';
 
-const navItems = [
-    { to: '/app/home', icon: <Home size={20} />, label: 'Home' },
-    { to: '/app/habits', icon: <CheckSquare size={20} />, label: 'Habits' },
-    { to: '/app/analytics', icon: <BarChart2 size={20} />, label: 'Analytics' },
-    { to: '/app/coaching', icon: <Bot size={20} />, label: 'AI Coach' },
-    { to: '/app/reminders', icon: <Bell size={20} />, label: 'Reminders' },
-    { to: '/app/profile', icon: <User size={20} />, label: 'Profile' },
+const NAV = [
+    { to: '/app/home', icon: Home, label: 'Today' },
+    { to: '/app/habits', icon: CheckSquare, label: 'Habits' },
+    { to: '/app/analytics', icon: BarChart2, label: 'Analytics' },
+    { to: '/app/coaching', icon: Bot, label: 'Coach' },
+    { to: '/app/reminders', icon: Bell, label: 'Reminders' },
+    { to: '/app/profile', icon: User, label: 'Profile' },
 ];
 
-export default function AppLayout() {
-    const { logout, user } = useAuth();
-    const navigate = useNavigate();
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+/** The brand mark: a small fire, lit. */
+function Mark({ size = 22 }: { size?: number }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ flexShrink: 0 }}>
+            <path
+                d="M12 2c2.5 6 7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 4.5-6 7-12Z"
+                fill="var(--copper)"
+            />
+            <path d="M12 11c1.4 2.6 3 3.3 3 5.4A3 3 0 0 1 9 16.4c0-2.1 1.6-2.8 3-5.4Z" fill="var(--gold)" />
+        </svg>
+    );
+}
 
-    const { data: profile } = useQuery({
-        queryKey: ['profile'],
-        queryFn: fetchProfile,
-        staleTime: 60_000,
-    });
+export default function AppLayout() {
+    const { logout } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const motionOK = useMotionOK();
+    const [collapsed, setCollapsed] = useState(false);
+
+    const { data: profile } = useQuery({ queryKey: ['profile'], queryFn: fetchProfile, staleTime: 60_000 });
+
+    const xp = profile?.experiencePoints ?? 0;
+    const level = profile?.level ?? 1;
+    const toNext = xp % 100;
 
     const handleLogout = async () => {
         await logout();
         navigate('/login');
     };
 
-    const xp = profile?.experiencePoints ?? 0;
-    const level = profile?.level ?? 1;
-    const progressToNext = xp % 100;
-
     return (
-        <div style={{ display: 'flex', minHeight: '100dvh', position: 'relative' }}>
-            {/* Sidebar */}
-            <aside style={{
-                width: sidebarOpen ? '240px' : '72px',
-                minHeight: '100dvh',
-                background: 'var(--bg-secondary)',
-                borderRight: '1px solid var(--border-color)',
-                display: 'flex', flexDirection: 'column',
-                position: 'fixed', top: 0, left: 0, bottom: 0,
-                zIndex: 30,
-                transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1)',
-                overflow: 'hidden',
-            }}>
-                {/* Logo */}
-                <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem', minHeight: 72 }}>
-                    <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Zap size={24} color="var(--brand-400)" />
-                    </div>
-                    {sidebarOpen && (
-                        <span style={{ fontFamily: 'Outfit, sans-serif', fontWeight: 800, fontSize: '1.1rem', background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', whiteSpace: 'nowrap' }}>
-                            Zenith Catalyst
-                        </span>
-                    )}
-                    <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0.25rem', flexShrink: 0 }}>
-                        {sidebarOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+        <div className="shell">
+            {/* Lives here rather than on a page, so crossing a level celebrates
+                wherever you happened to be when you completed the habit. */}
+            <LevelUp level={profile?.level} />
+
+            <motion.aside
+                className="sidebar"
+                data-collapsed={collapsed}
+                animate={{ width: collapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)' }}
+                transition={motionOK ? springs.settle : { duration: 0 }}
+            >
+                <div className="sidebar-head">
+                    <Mark size={24} />
+                    {!collapsed && <span className="brand">Zenith Catalyst</span>}
+                    <button
+                        className="btn btn--ghost btn--icon btn--sm"
+                        style={{ marginLeft: 'auto' }}
+                        onClick={() => setCollapsed((c) => !c)}
+                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                    >
+                        {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
                     </button>
                 </div>
 
-                {/* User XP Card */}
-                {sidebarOpen && profile && (
-                    <Link to="/app/profile" style={{ display: 'block', textDecoration: 'none', color: 'inherit', margin: '1rem', padding: '1rem', background: 'var(--gradient-card)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                            <div style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 }}>
+                {!collapsed && profile && (
+                    <Link to="/app/profile" className="xp-card">
+                        <div className="row" style={{ gap: '0.6rem', marginBottom: '0.6rem' }}>
+                            <div className="avatar" style={{ width: 34, height: 34, fontSize: '0.85rem' }}>
                                 {profile.avatarUpdatedAt
-                                    ? <img src={avatarUrl(profile.id, profile.avatarUpdatedAt)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ? <img src={avatarUrl(profile.id, profile.avatarUpdatedAt)} alt="" />
                                     : level}
                             </div>
                             <div style={{ overflow: 'hidden' }}>
-                                <div style={{ fontWeight: 700, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.firstName}</div>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--xp-gold)', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                                    <Star size={12} fill="var(--xp-gold)" /> {xp} XP · Lv {level}
+                                <div className="t-semi truncate" style={{ fontSize: '0.85rem' }}>{profile.firstName}</div>
+                                <div className="mono t-gold" style={{ fontSize: '0.68rem' }}>
+                                    <Counter value={xp} className="mono" /> XP · LV {level}
                                 </div>
                             </div>
                         </div>
                         <div className="progress-track" style={{ height: 4 }}>
-                            <div className="progress-fill" style={{ width: `${progressToNext}%` }} />
+                            <motion.div
+                                className="progress-fill"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${toNext}%` }}
+                                transition={motionOK ? springs.ember : { duration: 0 }}
+                            />
                         </div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '0.3rem', textAlign: 'right' }}>{progressToNext}/100 to Lv {level + 1}</div>
+                        <div className="mono t-ash" style={{ fontSize: '0.62rem', marginTop: '0.35rem', textAlign: 'right' }}>
+                            {toNext}/100 TO LV {level + 1}
+                        </div>
                     </Link>
                 )}
 
-                {/* Nav */}
-                <nav style={{ flex: 1, padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    {navItems.map(({ to, icon, label }) => (
-                        <NavLink key={to} to={to} style={({ isActive }) => ({
-                            display: 'flex', alignItems: 'center', gap: '0.75rem',
-                            padding: '0.75rem', borderRadius: 10,
-                            fontWeight: 600, fontSize: '0.9rem',
-                            textDecoration: 'none',
-                            background: isActive ? 'rgba(99,102,241,0.15)' : 'transparent',
-                            color: isActive ? 'var(--brand-400)' : 'var(--text-secondary)',
-                            border: isActive ? '1px solid rgba(99,102,241,0.25)' : '1px solid transparent',
-                            transition: 'all 0.2s',
-                            whiteSpace: 'nowrap', overflow: 'hidden',
-                        })}>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                {icon}
-                            </div>
-                            {sidebarOpen && label}
+                <nav className="sidebar-nav">
+                    {NAV.map(({ to, icon: Icon, label }) => (
+                        <NavLink key={to} to={to} className="nav-item" title={collapsed ? label : undefined}>
+                            {({ isActive }) => (
+                                <>
+                                    {isActive && (
+                                        <motion.span
+                                            className="nav-marker"
+                                            layoutId={motionOK ? 'nav-marker' : undefined}
+                                            transition={springs.settle}
+                                        />
+                                    )}
+                                    <Icon size={19} />
+                                    {!collapsed && label}
+                                </>
+                            )}
                         </NavLink>
                     ))}
                 </nav>
 
-                {/* Streak & Logout */}
-                <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                    {sidebarOpen && profile && (
-                        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                            <div style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: 'rgba(245,158,11,0.1)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <Flame size={20} color="var(--warning)" style={{ marginBottom: '0.2rem' }} />
-                                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--warning)' }}>{profile.currentStreak}</div>
-                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Streak</div>
+                <div className="sidebar-foot">
+                    {!collapsed && profile && (
+                        <div className="row" style={{ gap: '0.5rem', marginBottom: '0.7rem' }}>
+                            <div className="tile">
+                                <Flame size={17} color="var(--gold)" />
+                                <span className="tile-value t-gold"><Counter value={profile.currentStreak} className="" /></span>
+                                <span className="tile-label">Streak</span>
                             </div>
-                            <div style={{ flex: 1, textAlign: 'center', padding: '0.5rem', background: 'rgba(99,102,241,0.1)', borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <Trophy size={20} color="var(--brand-400)" style={{ marginBottom: '0.2rem' }} />
-                                <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--brand-400)' }}>{profile.longestStreak}</div>
-                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Best</div>
+                            <div className="tile">
+                                <Trophy size={17} color="var(--copper-lit)" />
+                                <span className="tile-value t-copper"><Counter value={profile.longestStreak} className="" /></span>
+                                <span className="tile-label">Best</span>
                             </div>
                         </div>
                     )}
-                    <button onClick={handleLogout} className="btn btn-ghost btn-sm" style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: sidebarOpen ? 'flex-start' : 'center' }}>
-                        <LogOut size={18} />
-                        {sidebarOpen && <span>Sign Out</span>}
+                    <button
+                        className="btn btn--ghost btn--sm"
+                        onClick={handleLogout}
+                        style={{ width: '100%', justifyContent: collapsed ? 'center' : 'flex-start' }}
+                    >
+                        <LogOut size={17} />
+                        {!collapsed && 'Sign out'}
                     </button>
                 </div>
-            </aside>
+            </motion.aside>
 
-            {/* Main Content */}
-            <main style={{
-                flex: 1,
-                marginLeft: sidebarOpen ? '240px' : '72px',
-                minHeight: '100dvh',
-                padding: '2rem',
-                transition: 'margin-left 0.3s cubic-bezier(0.4,0,0.2,1)',
-                position: 'relative', zIndex: 1,
-                maxWidth: '100%',
-            }}>
-                <Outlet />
+            <main className="main" data-collapsed={collapsed}>
+                <AnimatePresence mode="wait">
+                    <PageTransition key={location.pathname}>
+                        <Outlet />
+                    </PageTransition>
+                </AnimatePresence>
             </main>
+
+            {/* Under 900px the sidebar is gone and this is the whole nav. */}
+            <nav className="rail" aria-label="Main">
+                {NAV.map(({ to, icon: Icon, label }) => (
+                    <NavLink key={to} to={to} className="rail-item">
+                        {({ isActive }) => (
+                            <>
+                                {isActive && (
+                                    <motion.span
+                                        className="rail-marker"
+                                        layoutId={motionOK ? 'rail-marker' : undefined}
+                                        transition={springs.settle}
+                                    />
+                                )}
+                                <Icon size={19} />
+                                {label}
+                            </>
+                        )}
+                    </NavLink>
+                ))}
+            </nav>
         </div>
     );
 }

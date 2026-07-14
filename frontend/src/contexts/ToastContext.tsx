@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect, ReactNode } from 'react';
-import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Flame, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { springs, toastIn } from '../lib/motion';
 
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -20,11 +22,12 @@ const ToastContext = createContext<ToastCtx | null>(null);
 
 const DURATION = 3500;
 
+// Success is a flame, not a green tick — the app only has one vocabulary.
 const ICONS: Record<ToastType, React.ReactNode> = {
-    success: <CheckCircle2 size={18} color="var(--success)" />,
-    error: <XCircle size={18} color="var(--error)" />,
-    info: <Info size={18} color="var(--info)" />,
-    warning: <AlertTriangle size={18} color="var(--warning)" />,
+    success: <Flame size={17} color="var(--gold)" />,
+    error: <XCircle size={17} color="var(--cinder)" />,
+    info: <Info size={17} color="var(--cyan)" />,
+    warning: <AlertTriangle size={17} color="var(--copper-lit)" />,
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -57,19 +60,34 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         <ToastContext.Provider value={api.current}>
             {children}
             <div className="toast-container">
-                {toasts.map((t) => (
-                    <div key={t.id} className={`toast toast--${t.type}`} role="status">
-                        <span style={{ flexShrink: 0, display: 'flex' }}>{ICONS[t.type]}</span>
-                        <span style={{ flex: 1, fontSize: '0.875rem', lineHeight: 1.4 }}>{t.message}</span>
-                        <button
-                            onClick={() => dismiss(t.id)}
-                            aria-label="Dismiss"
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
+                {/* `popLayout` + `layout` is what makes the survivors slide up to
+                    close the gap when one is dismissed from the middle. */}
+                <AnimatePresence mode="popLayout">
+                    {toasts.map((t) => (
+                        <motion.div
+                            key={t.id}
+                            layout
+                            variants={toastIn}
+                            initial="hidden"
+                            animate="show"
+                            exit="exit"
+                            transition={springs.settle}
+                            className={`toast toast--${t.type}`}
+                            role="status"
                         >
-                            <X size={16} />
-                        </button>
-                    </div>
-                ))}
+                            <span style={{ flexShrink: 0, display: 'flex' }}>{ICONS[t.type]}</span>
+                            <span style={{ flex: 1, lineHeight: 1.4 }}>{t.message}</span>
+                            <button
+                                onClick={() => dismiss(t.id)}
+                                aria-label="Dismiss"
+                                className="btn btn--ghost btn--icon btn--sm"
+                                style={{ padding: 2, minWidth: 0 }}
+                            >
+                                <X size={15} />
+                            </button>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
             </div>
         </ToastContext.Provider>
     );

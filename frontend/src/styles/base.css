@@ -1,0 +1,145 @@
+/* ═══════════════════════════════════════════════════════════════════
+   EMBER — reset, typography, ambient, accessibility floor
+   ═══════════════════════════════════════════════════════════════════ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  background: var(--ground);
+  color: var(--ink);
+  min-height: 100dvh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* The room the fire sits in: a single warm pool of light from below,
+   and darkness at the edges. Static — the only *moving* ambient light
+   in the app belongs to the Hearth itself. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% 112%, rgba(201, 123, 78, 0.1) 0%, transparent 62%),
+    radial-gradient(ellipse 70% 45% at 12% -8%, rgba(242, 181, 68, 0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────
+   Fraunces is set with its SOFT and WONK axes engaged — the letterforms
+   should read as struck by hand, not typeset by a template. */
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 40, 'WONK' 1;
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+h1 {
+  font-size: clamp(1.85rem, 4vw, 2.6rem);
+  font-variation-settings: 'SOFT' 60, 'WONK' 1, 'opsz' 90;
+}
+
+h2 {
+  font-size: clamp(1.3rem, 3vw, 1.7rem);
+}
+
+h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+p {
+  color: var(--ink-dim);
+}
+
+a {
+  color: var(--copper-lit);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--gold);
+}
+
+/* Numerals carry weight in a tracker — every count is a tally. */
+.tally {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 20, 'WONK' 0;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Accessibility floor ────────────────────────────────────────────
+   Every interactive element gets a visible keyboard ring. The old
+   design had none at all and killed the outline on inputs. */
+:focus-visible {
+  outline: 2px solid var(--copper-lit);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(242, 181, 68, 0.28);
+  color: var(--ink);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--copper-deep);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--copper);
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────
+   Motion components gate themselves via useMotionOK(); this covers the
+   CSS-driven remainder (shimmer, flicker, breathing glow). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -1,14 +1,20 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'motion/react';
+import { Flame, Trophy, Camera, AlertTriangle, MonitorSmartphone, Star } from 'lucide-react';
 import {
-    fetchProfile, updateProfile, changePassword, deleteAccount, uploadAvatar, avatarUrl, logoutAllDevices, User,
+    fetchProfile, updateProfile, changePassword, deleteAccount,
+    uploadAvatar, avatarUrl, logoutAllDevices, User,
 } from '../lib/queries';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
 import { ProfileSkeleton } from '../components/Skeleton';
-import { Star, Flame, Trophy, Camera, AlertTriangle, MonitorSmartphone } from 'lucide-react';
+import { springs, useMotionOK } from '../lib/motion';
+import Counter from '../components/Counter';
+import Modal from '../components/Modal';
+import Reveal from '../components/Reveal';
 
 export default function Profile() {
     const qc = useQueryClient();
@@ -18,131 +24,179 @@ export default function Profile() {
 
     const { data: profile, isLoading } = useQuery<User>({ queryKey: ['profile'], queryFn: fetchProfile });
 
-    if (isLoading || !profile) {
-        return (
-            <div style={{ animation: 'fadeIn 0.35s ease', maxWidth: 900, margin: '0 auto' }}>
-                <div style={{ marginBottom: '2rem' }}>
-                    <h1>Profile</h1>
-                    <p className="text-secondary">Manage your account, stats, and preferences</p>
-                </div>
-                <ProfileSkeleton />
+    const head = (
+        <div className="page-head">
+            <div>
+                <div className="eyebrow">Account</div>
+                <h1>Profile</h1>
             </div>
-        );
+        </div>
+    );
+
+    if (isLoading || !profile) {
+        return <div className="page page--narrow">{head}<ProfileSkeleton /></div>;
     }
 
     return (
-        <div style={{ animation: 'fadeIn 0.35s ease', maxWidth: 900, margin: '0 auto' }}>
-            <div style={{ marginBottom: '2rem' }}>
-                <h1>Profile</h1>
-                <p className="text-secondary">Manage your account, stats, and preferences</p>
+        <div className="page page--narrow">
+            {head}
+            <div className="stack stack--lg">
+                <IdentityCard profile={profile} fileRef={fileRef} onRefresh={refreshUser} />
+                <StatsCard profile={profile} />
+                <Reveal><BadgesCard profile={profile} /></Reveal>
+                <Reveal>
+                    <EditProfileCard
+                        profile={profile}
+                        onSaved={async () => { await refreshUser(); qc.invalidateQueries({ queryKey: ['profile'] }); }}
+                    />
+                </Reveal>
+                <Reveal><ChangePasswordCard /></Reveal>
+                <Reveal><ActiveSessionsCard onLoggedOut={async () => { await logout(); navigate('/login'); }} /></Reveal>
+                <Reveal><DangerZoneCard onDeleted={async () => { await logout(); navigate('/login'); }} /></Reveal>
             </div>
-
-            <IdentityCard profile={profile} fileRef={fileRef} onRefresh={refreshUser} />
-            <StatsCard profile={profile} />
-            <BadgesCard profile={profile} />
-            <EditProfileCard profile={profile} onSaved={async () => { await refreshUser(); qc.invalidateQueries({ queryKey: ['profile'] }); }} />
-            <ChangePasswordCard />
-            <ActiveSessionsCard onLoggedOut={async () => { await logout(); navigate('/login'); }} />
-            <DangerZoneCard onDeleted={async () => { await logout(); navigate('/login'); }} />
         </div>
     );
 }
 
-// ─── Identity + avatar ─────────────────────────────────────────────
-function IdentityCard({ profile, fileRef, onRefresh }: { profile: User; fileRef: React.RefObject<HTMLInputElement>; onRefresh: () => Promise<void> }) {
+// ─── Identity ───────────────────────────────────────────────────────
+function IdentityCard({ profile, fileRef, onRefresh }: {
+    profile: User; fileRef: React.RefObject<HTMLInputElement>; onRefresh: () => Promise<void>;
+}) {
     const qc = useQueryClient();
     const toast = useToast();
 
     const avatarMut = useMutation({
         mutationFn: uploadAvatar,
-        onSuccess: async () => { await onRefresh(); qc.invalidateQueries({ queryKey: ['profile'] }); toast.success('Profile photo updated'); },
-        onError: (err) => toast.error(errMsg(err, 'Failed to upload image')),
+        onSuccess: async () => {
+            await onRefresh();
+            qc.invalidateQueries({ queryKey: ['profile'] });
+            toast.success('Photo updated');
+        },
+        onError: (err) => toast.error(errMsg(err, 'Could not upload that image')),
     });
 
-    const initials = `${profile.firstName?.[0] ?? ''}${profile.lastName?.[0] ?? ''}`.toUpperCase() || profile.firstName?.[0]?.toUpperCase() || '?';
-    const memberSince = new Date(profile.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+    const initials =
+        `${profile.firstName?.[0] ?? ''}${profile.lastName?.[0] ?? ''}`.toUpperCase()
+        || profile.firstName?.[0]?.toUpperCase()
+        || '?';
+
+    const since = new Date(profile.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
 
     return (
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <div className="card row row--wrap card--static" style={{ gap: '1.5rem' }}>
             <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div style={{
-                    width: 88, height: 88, borderRadius: '50%', overflow: 'hidden',
-                    background: 'var(--gradient-brand)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '2rem', fontWeight: 700, color: '#fff',
-                }}>
-                    {profile.avatarUpdatedAt ? (
-                        <img src={avatarUrl(profile.id, profile.avatarUpdatedAt)} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : initials}
+                <div className="avatar" style={{ width: 84, height: 84, fontSize: '1.75rem' }}>
+                    {profile.avatarUpdatedAt
+                        ? <img src={avatarUrl(profile.id, profile.avatarUpdatedAt)} alt="" />
+                        : initials}
                 </div>
                 <button
-                    className="btn btn-icon btn-sm"
+                    className="btn btn--secondary btn--icon btn--sm"
                     onClick={() => fileRef.current?.click()}
                     disabled={avatarMut.isPending}
-                    title="Change photo"
+                    aria-label="Change photo"
                     style={{ position: 'absolute', bottom: -4, right: -4, borderRadius: '50%' }}
                 >
-                    <Camera size={16} />
+                    <Camera size={15} />
                 </button>
                 <input
-                    ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) avatarMut.mutate(f); e.target.value = ''; }}
+                    ref={fileRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    hidden
+                    onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) avatarMut.mutate(f);
+                        e.target.value = '';
+                    }}
                 />
             </div>
             <div style={{ flex: 1, minWidth: 200 }}>
-                <h2 style={{ marginBottom: '0.25rem' }}>{profile.firstName} {profile.lastName ?? ''}</h2>
-                <p className="text-secondary" style={{ marginBottom: '0.25rem' }}>{profile.email}</p>
-                <p className="text-muted text-sm">Member since {memberSince}</p>
-                {avatarMut.isPending && <p className="text-muted text-sm">Uploading…</p>}
+                <h2 style={{ marginBottom: '0.15rem' }}>{profile.firstName} {profile.lastName ?? ''}</h2>
+                <p className="t-sm">{profile.email}</p>
+                <p className="mono t-ash" style={{ fontSize: '0.68rem', marginTop: '0.3rem' }}>
+                    KEEPING FIRES SINCE {since.toUpperCase()}
+                </p>
+                {avatarMut.isPending && <p className="t-sm t-copper">Uploading…</p>}
             </div>
         </div>
     );
 }
 
-// ─── Stats ─────────────────────────────────────────────────────────
+// ─── Stats ──────────────────────────────────────────────────────────
 function StatsCard({ profile }: { profile: User }) {
-    const progressToNext = profile.experiencePoints % 100;
-    return (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>Stats</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <Star size={16} fill="var(--xp-gold)" color="var(--xp-gold)" />
-                <span style={{ fontWeight: 600 }}>Level {profile.level}</span>
-                <span className="text-muted text-sm">· {profile.experiencePoints} XP</span>
-            </div>
-            <div className="progress-track" style={{ height: 6 }}>
-                <div className="progress-fill" style={{ width: `${progressToNext}%` }} />
-            </div>
-            <div className="text-muted text-xs" style={{ marginTop: '0.3rem', textAlign: 'right' }}>{progressToNext}/100 to Lv {profile.level + 1}</div>
+    const motionOK = useMotionOK();
+    const toNext = profile.experiencePoints % 100;
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                <div style={{ flex: 1, textAlign: 'center', padding: '0.75rem', background: 'rgba(245,158,11,0.1)', borderRadius: 8 }}>
-                    <Flame size={22} color="var(--warning)" />
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--warning)' }}>{profile.currentStreak}</div>
-                    <div className="text-muted text-xs">Current Streak</div>
+    return (
+        <div className="card card--static">
+            <h3 className="card-title">Standing</h3>
+
+            <div className="row" style={{ gap: '0.45rem', marginBottom: '0.6rem' }}>
+                <Star size={15} fill="var(--gold)" color="var(--gold)" />
+                <span className="t-semi">Level {profile.level}</span>
+                <span className="mono t-ash" style={{ fontSize: '0.72rem' }}>
+                    <Counter value={profile.experiencePoints} className="mono" /> XP
+                </span>
+            </div>
+
+            <div className="progress-track" style={{ height: 6 }}>
+                <motion.div
+                    className="progress-fill"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${toNext}%` }}
+                    transition={motionOK ? springs.ember : { duration: 0 }}
+                />
+            </div>
+            <div className="mono t-ash" style={{ fontSize: '0.65rem', marginTop: '0.35rem', textAlign: 'right' }}>
+                {toNext}/100 TO LEVEL {profile.level + 1}
+            </div>
+
+            <div className="row" style={{ gap: '0.75rem', marginTop: '1.25rem' }}>
+                <div className="tile" style={{ padding: '0.85rem' }}>
+                    <Flame size={20} color="var(--gold)" />
+                    <span className="tile-value t-gold" style={{ fontSize: '1.35rem' }}>
+                        <Counter value={profile.currentStreak} className="" />
+                    </span>
+                    <span className="tile-label">Current streak</span>
                 </div>
-                <div style={{ flex: 1, textAlign: 'center', padding: '0.75rem', background: 'rgba(99,102,241,0.1)', borderRadius: 8 }}>
-                    <Trophy size={22} color="var(--brand-400)" />
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--brand-400)' }}>{profile.longestStreak}</div>
-                    <div className="text-muted text-xs">Longest Streak</div>
+                <div className="tile" style={{ padding: '0.85rem' }}>
+                    <Trophy size={20} color="var(--copper-lit)" />
+                    <span className="tile-value t-copper" style={{ fontSize: '1.35rem' }}>
+                        <Counter value={profile.longestStreak} className="" />
+                    </span>
+                    <span className="tile-label">Longest ever</span>
                 </div>
             </div>
         </div>
     );
 }
 
-// ─── Badges ────────────────────────────────────────────────────────
+// ─── Badges ─────────────────────────────────────────────────────────
 function BadgesCard({ profile }: { profile: User }) {
     return (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ marginBottom: '1rem' }}>Badges <span className="text-muted text-sm">({profile.badges.length})</span></h3>
+        <div className="card card--static">
+            <h3 className="card-title">
+                Badges <span className="mono t-ash" style={{ fontSize: '0.72rem' }}>({profile.badges.length})</span>
+            </h3>
             {profile.badges.length === 0 ? (
-                <p className="text-secondary">No badges earned yet. Keep building your habits!</p>
+                <p className="t-sm">Nothing earned yet. Badges arrive as streaks build.</p>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))', gap: '0.75rem' }}>
                     {profile.badges.map((b) => (
-                        <div key={b.id} className="card-sm" style={{ textAlign: 'center', padding: '0.75rem' }} title={b.badge.description}>
-                            <div style={{ fontSize: '1.75rem' }}>{b.badge.icon}</div>
-                            <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>{b.badge.name}</div>
+                        <div
+                            key={b.id}
+                            className="card--sm t-center"
+                            title={b.badge.description}
+                            style={{
+                                padding: '0.85rem 0.5rem',
+                                background: 'var(--surface-sunk)',
+                                border: '1px solid var(--line)',
+                                borderRadius: 'var(--radius-sm)',
+                            }}
+                        >
+                            <div style={{ fontSize: '1.6rem' }}>{b.badge.icon}</div>
+                            <div className="t-semi t-xs" style={{ marginTop: '0.2rem' }}>{b.badge.name}</div>
                         </div>
                     ))}
                 </div>
@@ -151,7 +205,7 @@ function BadgesCard({ profile }: { profile: User }) {
     );
 }
 
-// ─── Edit profile ──────────────────────────────────────────────────
+// ─── Edit profile ───────────────────────────────────────────────────
 function EditProfileCard({ profile, onSaved }: { profile: User; onSaved: () => Promise<void> }) {
     const toast = useToast();
     const [firstName, setFirstName] = useState(profile.firstName);
@@ -161,24 +215,24 @@ function EditProfileCard({ profile, onSaved }: { profile: User; onSaved: () => P
     const mut = useMutation({
         mutationFn: () => updateProfile({ firstName, lastName: lastName || null, email }),
         onSuccess: async () => { toast.success('Profile updated'); await onSaved(); },
-        onError: (err) => toast.error(errMsg(err, 'Failed to update profile')),
+        onError: (err) => toast.error(errMsg(err, 'Could not save your profile')),
     });
 
-    const dirty = firstName !== profile.firstName || (lastName || '') !== (profile.lastName ?? '') || email !== profile.email;
+    const dirty =
+        firstName !== profile.firstName
+        || (lastName || '') !== (profile.lastName ?? '')
+        || email !== profile.email;
 
     return (
-        <form
-            className="card" style={{ marginBottom: '1rem' }}
-            onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}
-        >
-            <h3 style={{ marginBottom: '1rem' }}>Edit Profile</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <form className="card card--static" onSubmit={(e) => { e.preventDefault(); mut.mutate(); }}>
+            <h3 className="card-title">Details</h3>
+            <div className="grid-2" style={{ gap: '1rem' }}>
                 <div>
-                    <label className="label">First Name</label>
+                    <label className="label">First name</label>
                     <input className="input" value={firstName} maxLength={50} onChange={(e) => setFirstName(e.target.value)} required />
                 </div>
                 <div>
-                    <label className="label">Last Name</label>
+                    <label className="label">Last name</label>
                     <input className="input" value={lastName} maxLength={50} onChange={(e) => setLastName(e.target.value)} />
                 </div>
             </div>
@@ -186,128 +240,117 @@ function EditProfileCard({ profile, onSaved }: { profile: User; onSaved: () => P
                 <label className="label">Email</label>
                 <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
-            <div style={{ marginTop: '1rem' }}>
-                <button type="submit" className="btn btn-primary" disabled={!dirty || mut.isPending}>
-                    {mut.isPending ? 'Saving…' : 'Save Changes'}
+            <div style={{ marginTop: '1.25rem' }}>
+                <button type="submit" className="btn btn--primary" disabled={!dirty || mut.isPending}>
+                    {mut.isPending ? 'Saving…' : 'Save changes'}
                 </button>
             </div>
         </form>
     );
 }
 
-// ─── Change password ───────────────────────────────────────────────
+// ─── Password ───────────────────────────────────────────────────────
 function ChangePasswordCard() {
     const toast = useToast();
     const [currentPassword, setCurrent] = useState('');
     const [newPassword, setNew] = useState('');
     const [confirm, setConfirm] = useState('');
-    const [clientError, setClientError] = useState('');
+    const [error, setError] = useState('');
 
     const mut = useMutation({
         mutationFn: () => changePassword({ currentPassword, newPassword }),
         onSuccess: () => {
-            toast.success('Password changed — other sessions logged out');
+            toast.success('Password changed — other sessions signed out');
             setCurrent(''); setNew(''); setConfirm('');
         },
-        onError: (err) => toast.error(errMsg(err, 'Failed to change password')),
+        onError: (err) => toast.error(errMsg(err, 'Could not change your password')),
     });
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        setClientError('');
-        if (newPassword.length < 8) { setClientError('New password must be at least 8 characters'); return; }
-        if (newPassword !== confirm) { setClientError('New passwords do not match'); return; }
+        setError('');
+        if (newPassword.length < 8) { setError('Use at least 8 characters.'); return; }
+        if (newPassword !== confirm) { setError('Those two passwords are different.'); return; }
         mut.mutate();
     };
 
     return (
-        <form className="card" style={{ marginBottom: '1rem' }} onSubmit={submit}>
-            <h3 style={{ marginBottom: '1rem' }}>Change Password</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form className="card card--static" onSubmit={submit}>
+            <h3 className="card-title">Password</h3>
+            <div className="stack stack--lg">
                 <div>
-                    <label className="label">Current Password</label>
+                    <label className="label">Current password</label>
                     <input className="input" type="password" value={currentPassword} onChange={(e) => setCurrent(e.target.value)} required />
                 </div>
                 <div>
-                    <label className="label">New Password</label>
+                    <label className="label">New password</label>
                     <input className="input" type="password" value={newPassword} onChange={(e) => setNew(e.target.value)} required />
                 </div>
                 <div>
-                    <label className="label">Confirm New Password</label>
+                    <label className="label">Confirm new password</label>
                     <input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
                 </div>
             </div>
-            {clientError && <p className="text-sm" style={{ marginTop: '0.75rem', color: 'var(--error)' }}>{clientError}</p>}
-            <div style={{ marginTop: '1rem' }}>
-                <button type="submit" className="btn btn-primary" disabled={mut.isPending}>
-                    {mut.isPending ? 'Updating…' : 'Update Password'}
+            {error && <p className="t-sm t-cinder" style={{ marginTop: '0.75rem' }}>{error}</p>}
+            <div style={{ marginTop: '1.25rem' }}>
+                <button type="submit" className="btn btn--primary" disabled={mut.isPending}>
+                    {mut.isPending ? 'Updating…' : 'Update password'}
                 </button>
             </div>
         </form>
     );
 }
 
-// ─── Active sessions ───────────────────────────────────────────────
+// ─── Sessions ───────────────────────────────────────────────────────
 function ActiveSessionsCard({ onLoggedOut }: { onLoggedOut: () => Promise<void> }) {
     const toast = useToast();
     const mut = useMutation({
         mutationFn: logoutAllDevices,
         onSuccess: () => onLoggedOut(),
-        onError: (err) => toast.error(errMsg(err, 'Failed to log out other devices')),
+        onError: (err) => toast.error(errMsg(err, 'Could not sign out the other devices')),
     });
 
     return (
-        <div className="card" style={{ marginBottom: '1rem' }}>
-            <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <MonitorSmartphone size={18} /> Active Sessions
-            </h3>
-            <p className="text-secondary" style={{ marginBottom: '1rem' }}>
-                Sign out everywhere — including this device. Use this if you've logged in on a shared or lost device.
+        <div className="card card--static">
+            <h3 className="card-title"><MonitorSmartphone size={17} /> Sessions</h3>
+            <p className="t-sm" style={{ marginBottom: '1.25rem' }}>
+                Signs you out everywhere, including here. Use it if you left yourself logged in on a device you no longer have.
             </p>
-            <button className="btn btn-secondary" onClick={() => mut.mutate()} disabled={mut.isPending}>
-                {mut.isPending ? 'Signing out…' : 'Log out all devices'}
+            <button className="btn btn--secondary" onClick={() => mut.mutate()} disabled={mut.isPending}>
+                {mut.isPending ? 'Signing out…' : 'Sign out all devices'}
             </button>
         </div>
     );
 }
 
-// ─── Danger zone ───────────────────────────────────────────────────
+// ─── Danger zone ────────────────────────────────────────────────────
 function DangerZoneCard({ onDeleted }: { onDeleted: () => Promise<void> }) {
     const toast = useToast();
-    const [showConfirm, setShowConfirm] = useState(false);
+    const [open, setOpen] = useState(false);
 
     const mut = useMutation({
         mutationFn: deleteAccount,
         onSuccess: () => onDeleted(),
-        onError: (err) => toast.error(errMsg(err, 'Failed to delete account')),
+        onError: (err) => toast.error(errMsg(err, 'Could not delete the account')),
     });
 
     return (
-        <div className="card" style={{ marginBottom: '1rem', border: '1px solid rgba(239,68,68,0.4)' }}>
-            <h3 style={{ marginBottom: '0.5rem', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <AlertTriangle size={18} /> Danger Zone
-            </h3>
-            <p className="text-secondary" style={{ marginBottom: '1rem' }}>
-                Deleting your account is permanent and removes all your habits, history, and data.
+        <div className="card card--danger card--static">
+            <h3 className="card-title t-cinder"><AlertTriangle size={17} /> Delete account</h3>
+            <p className="t-sm" style={{ marginBottom: '1.25rem' }}>
+                Removes your habits, your history, and every fire you have kept. It cannot be undone.
             </p>
-            <button className="btn btn-danger" onClick={() => setShowConfirm(true)}>Delete Account</button>
+            <button className="btn btn--danger" onClick={() => setOpen(true)}>Delete account</button>
 
-            {showConfirm && (
-                <div className="modal-overlay" onClick={() => setShowConfirm(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
-                        <h3 style={{ marginBottom: '0.5rem' }}>Delete account?</h3>
-                        <p className="text-secondary" style={{ marginBottom: '1.5rem' }}>
-                            This cannot be undone. All your data will be permanently deleted.
-                        </p>
-                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                            <button className="btn btn-secondary" onClick={() => setShowConfirm(false)} disabled={mut.isPending}>Cancel</button>
-                            <button className="btn btn-danger" onClick={() => mut.mutate()} disabled={mut.isPending}>
-                                {mut.isPending ? 'Deleting…' : 'Yes, delete my account'}
-                            </button>
-                        </div>
-                    </div>
+            <Modal open={open} onClose={() => setOpen(false)} width={420} danger title={<><AlertTriangle size={17} /> Delete account?</>}>
+                <p className="t-dim">Everything goes, permanently. There is no way back from this one.</p>
+                <div className="modal-actions">
+                    <button className="btn btn--secondary" onClick={() => setOpen(false)} disabled={mut.isPending}>Cancel</button>
+                    <button className="btn btn--danger" onClick={() => mut.mutate()} disabled={mut.isPending}>
+                        {mut.isPending ? 'Deleting…' : 'Delete my account'}
+                    </button>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import Modal from '../components/Modal';
 
 interface ConfirmOptions {
     title?: string;
@@ -31,25 +32,32 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     return (
         <ConfirmContext.Provider value={confirm}>
             {children}
-            {pending && (
-                <div className="modal-overlay" onClick={() => close(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
-                        <h3 style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: pending.danger ? 'var(--error)' : undefined }}>
-                            {pending.danger && <AlertTriangle size={18} />}
-                            {pending.title ?? 'Are you sure?'}
-                        </h3>
-                        <p className="text-secondary" style={{ marginBottom: '1.5rem' }}>{pending.message}</p>
-                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                            <button className="btn btn-secondary" onClick={() => close(false)}>
-                                {pending.cancelText ?? 'Cancel'}
-                            </button>
-                            <button className={`btn ${pending.danger ? 'btn-danger' : 'btn-primary'}`} onClick={() => close(true)} autoFocus>
-                                {pending.confirmText ?? 'Confirm'}
-                            </button>
-                        </div>
-                    </div>
+            <Modal
+                open={!!pending}
+                onClose={() => close(false)}
+                width={420}
+                danger={pending?.danger}
+                title={
+                    <>
+                        {pending?.danger && <AlertTriangle size={17} />}
+                        {pending?.title ?? 'Are you sure?'}
+                    </>
+                }
+            >
+                <p className="t-dim">{pending?.message}</p>
+                <div className="modal-actions">
+                    <button className="btn btn--secondary" onClick={() => close(false)}>
+                        {pending?.cancelText ?? 'Cancel'}
+                    </button>
+                    <button
+                        className={`btn ${pending?.danger ? 'btn--danger' : 'btn--primary'}`}
+                        onClick={() => close(true)}
+                        autoFocus
+                    >
+                        {pending?.confirmText ?? 'Confirm'}
+                    </button>
                 </div>
-            )}
+            </Modal>
         </ConfirmContext.Provider>
     );
 }

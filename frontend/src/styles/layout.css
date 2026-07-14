@@ -1,0 +1,245 @@
+/* ═══════════════════════════════════════════════════════════════════
+   EMBER — app shell
+   Desktop: a fixed left sidebar. Under 900px it becomes a bottom rail,
+   which the old layout had no answer for at all.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.shell {
+  display: flex;
+  min-height: 100dvh;
+}
+
+/* ── Sidebar (desktop) ──────────────────────────────────────────── */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-w);
+  background: var(--ground-deep);
+  border-right: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.sidebar[data-collapsed='true'] {
+  width: var(--sidebar-w-collapsed);
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1.25rem 1rem;
+  min-height: 70px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 60, 'WONK' 1;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.75rem 0.6rem;
+  overflow-y: auto;
+}
+
+.nav-item {
+  position: relative;
+  /* Stacking context, so the z-index:-1 travelling marker lands behind this
+     item's icon and label rather than behind the sidebar's background. */
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  transition: color 0.18s ease;
+}
+
+.nav-item:hover {
+  color: var(--ink);
+}
+
+.nav-item[aria-current='page'] {
+  color: var(--gold);
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+}
+
+/* The travelling indicator — a Motion layoutId element. It slides
+   between nav items rather than fading in and out. */
+.nav-marker {
+  position: absolute;
+  inset: 0;
+  background: rgba(242, 181, 68, 0.1);
+  border: 1px solid rgba(242, 181, 68, 0.25);
+  border-radius: var(--radius-sm);
+  z-index: -1;
+}
+
+.sidebar-foot {
+  padding: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+/* XP card in the sidebar */
+.xp-card {
+  display: block;
+  margin: 0.85rem;
+  padding: 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.xp-card:hover {
+  border-color: rgba(242, 181, 68, 0.35);
+  color: inherit;
+}
+
+.avatar {
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--copper-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Streak / best tiles */
+.tile {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.55rem 0.35rem;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.tile-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+/* ── Main ───────────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  min-width: 0;
+  min-height: 100dvh;
+  padding: 2rem;
+  margin-left: var(--sidebar-w);
+  position: relative;
+  z-index: 1;
+}
+
+.main[data-collapsed='true'] {
+  margin-left: var(--sidebar-w-collapsed);
+}
+
+/* ── Mobile bottom rail ─────────────────────────────────────────── */
+.rail {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    display: none;
+  }
+
+  .main,
+  .main[data-collapsed='true'] {
+    margin-left: 0;
+    padding: 1.25rem 1rem calc(var(--rail-h) + 1.5rem);
+  }
+
+  .rail {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40;
+    display: flex;
+    align-items: stretch;
+    height: var(--rail-h);
+    background: var(--ground-deep);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .rail-item {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    color: var(--ash);
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .rail-item[aria-current='page'] {
+    color: var(--gold);
+  }
+
+  /* A hot coal under the active tab — the rail's own ember. */
+  .rail-marker {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26px;
+    height: 2px;
+    border-radius: 0 0 3px 3px;
+    background: var(--gold);
+    box-shadow: var(--glow-ember);
+  }
+}
