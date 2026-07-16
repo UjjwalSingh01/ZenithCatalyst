@@ -22,15 +22,21 @@ const NAV = [
     { to: '/app/profile', icon: User, label: 'Profile' },
 ];
 
-/** The brand mark: a small fire, lit. */
+/**
+ * The brand mark: a small fire, lit. Deliberately the exact same silhouette as
+ * public/favicon.svg — the tab and the sidebar should be recognisably one mark.
+ */
 function Mark({ size = 22 }: { size?: number }) {
     return (
-        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden style={{ flexShrink: 0 }}>
+        <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden style={{ flexShrink: 0 }}>
             <path
-                d="M12 2c2.5 6 7 7.5 7 12a7 7 0 0 1-14 0c0-4.5 4.5-6 7-12Z"
+                d="M32 4c3 13 17 22 16 35a16 16 0 0 1-32 1c0-11 8-14 11-24 1.5-4.5 3.5-9 5-12Z"
                 fill="var(--copper)"
             />
-            <path d="M12 11c1.4 2.6 3 3.3 3 5.4A3 3 0 0 1 9 16.4c0-2.1 1.6-2.8 3-5.4Z" fill="var(--gold)" />
+            <path
+                d="M32 29c1.5 8 8 11 7.5 17a7.5 7.5 0 0 1-15 0c0-6 5.5-9 7.5-17Z"
+                fill="var(--gold)"
+            />
         </svg>
     );
 }
