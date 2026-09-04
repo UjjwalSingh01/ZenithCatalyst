@@ -78,8 +78,11 @@ export function avatarUrl(userId: string, v?: string | null): string {
 
 // ─── Habits ────────────────────────────────────────────────────────
 
-export async function fetchHabits(includeArchived = false) {
-    const res = await api.get('/habits', { params: { includeArchived } });
+/** `challenge: true` narrows to the habits committed to as challenges. */
+export async function fetchHabits(includeArchived = false, challenge = false) {
+    const res = await api.get('/habits', {
+        params: { includeArchived, ...(challenge ? { challenge: true } : {}) },
+    });
     return res.data.data;
 }
 
@@ -103,6 +106,11 @@ export async function updateHabit(id: string, data: any) {
     return res.data.data;
 }
 
+/** Persists the order of the habits list; `ids` is the full list, in order. */
+export async function reorderHabits(ids: string[]) {
+    await api.patch('/habits/order', { ids });
+}
+
 export async function deleteHabit(id: string) {
     await api.delete(`/habits/${id}`);
 }
@@ -121,6 +129,12 @@ export async function toggleSubHabit(subHabitId: string, date: string, completed
 
 export async function fetchAnalytics(range: string) {
     const res = await api.get('/analytics', { params: { range } });
+    return res.data.data;
+}
+
+/** The habit × day ledger for one window — one mark per habit per date. */
+export async function fetchHabitGrid(from: string, to: string) {
+    const res = await api.get('/analytics/grid', { params: { from, to } });
     return res.data.data;
 }
 

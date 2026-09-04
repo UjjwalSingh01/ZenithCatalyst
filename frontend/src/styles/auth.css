@@ -1,0 +1,204 @@
+/* ═══════════════════════════════════════════════════════════════════
+   EMBER — sign in and sign up
+
+   Split screen: the task on one side, the brand on the other. The form
+   sits directly on the ground rather than inside a card, because a card
+   floating in the middle of an empty viewport is a container standing in
+   for a layout.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* One row, stated explicitly: it fills the viewport, and grows past it
+   when a form is taller than the screen. `dvh` rather than `vh` so the
+   panel does not sit under a phone's collapsing address bar. */
+.auth {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  min-height: 100dvh;
+}
+
+@media (min-width: 980px) {
+  .auth {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.04fr);
+  }
+}
+
+/* ── The task side ────────────────────────────────────────────────── */
+.auth-pane {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  padding: 2rem 1.5rem 1.75rem;
+}
+
+.auth-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* The fire sits above the form, aligned to the fields rather than
+   centred over them: a lone centred element above a left-aligned form
+   reads as two layouts sharing a column. */
+.auth-brand {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  margin-bottom: 1.85rem;
+  margin-left: -0.6rem; /* optical: the art carries its own side padding */
+  color: var(--ink);
+}
+
+.auth-brand-name {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 45, 'WONK' 1;
+  font-weight: 700;
+  font-size: 1.3rem;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  transition: color 0.18s ease;
+}
+
+.auth-brand:hover .auth-brand-name {
+  color: var(--gold);
+}
+
+/* Two auto margins, so the free space splits above and below and the
+   form settles optically centred without being pinned there. */
+.auth-form {
+  margin-top: auto;
+  padding-top: 3rem;
+}
+
+.auth-title {
+  font-size: 1.85rem;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.auth-sub {
+  margin-top: 0.45rem;
+  margin-bottom: 1.9rem;
+  font-size: 0.95rem;
+  color: var(--ink-dim);
+}
+
+.auth-alt {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+}
+
+.auth-fine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.25rem;
+  margin-top: auto;
+  padding-top: 2.5rem;
+  font-size: 0.76rem;
+  color: var(--ash);
+}
+
+.auth-fine a {
+  color: var(--ash);
+  transition: color 0.18s ease;
+}
+
+.auth-fine a:hover {
+  color: var(--copper-lit);
+}
+
+/* ── The brand side ───────────────────────────────────────────────
+   Hidden rather than stacked below 980px. Stacked, it would push the
+   form under the fold on a phone, and the form is the entire point of
+   the page. */
+.auth-panel {
+  display: none;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+@media (min-width: 980px) {
+  .auth-panel {
+    display: block;
+  }
+}
+
+/* Pulled slightly toward the palette. The photograph's ember red is
+   more saturated than anything in the token set, and its ash reads
+   cool grey; easing the saturation lets the warm wash below carry it
+   into copper territory without draining the fire out of it. */
+.auth-panel-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 58% 50%;
+  transform-origin: 55% 45%;
+  filter: saturate(0.86) contrast(1.03);
+}
+
+/* Three layers doing three jobs: darken the top so nothing competes
+   with the copy, feather the left edge into the form pane so the panel
+   reads as part of the page rather than a pasted-in rectangle, and pool
+   warm light at the base so the photo lands in this palette instead of
+   its own. */
+.auth-panel-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(14, 10, 9, 0.58) 0%, rgba(14, 10, 9, 0.2) 34%, rgba(14, 10, 9, 0.94) 100%),
+    linear-gradient(90deg, var(--ground) 0%, rgba(22, 16, 15, 0) 20%),
+    radial-gradient(ellipse 75% 45% at 50% 104%, rgba(201, 123, 78, 0.34), transparent 68%),
+    /* flat copper wash, so the ash greys sit in the same world as the
+       rest of the product rather than reading as a colder photograph */
+    linear-gradient(0deg, rgba(143, 83, 52, 0.16), rgba(143, 83, 52, 0.16));
+}
+
+.auth-panel-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3rem;
+}
+
+.auth-panel-heading {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 55, 'WONK' 1;
+  font-weight: 600;
+  font-size: clamp(1.5rem, 2.1vw, 2.05rem);
+  line-height: 1.16;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  max-width: 19ch;
+  text-wrap: balance;
+}
+
+.auth-panel-body {
+  margin-top: 0.8rem;
+  max-width: 34ch;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: rgba(245, 235, 228, 0.62);
+}
+
+@media (max-width: 520px) {
+  .auth-pane {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .auth-form {
+    padding-top: 2.25rem;
+  }
+
+  .auth-title {
+    font-size: 1.65rem;
+  }
+}

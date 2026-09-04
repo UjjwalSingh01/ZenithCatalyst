@@ -1,0 +1,907 @@
+/* ═══════════════════════════════════════════════════════════════════
+   EMBER — the public landing surface
+
+   This is the only Persuade surface in the app: everything else is
+   Operate. It therefore gets more air and a louder voice than the
+   dashboard, but it stays inside the same world. No new palette, no
+   new radius scale, no new type. A visitor who signs up should not
+   feel they walked into a different product on the other side.
+
+   The page is one dark theme end to end. Sections shift between
+   --ground and --ground-deep only; nothing inverts.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.lp {
+  position: relative;
+  z-index: 1;
+  overflow-x: hidden;
+}
+
+/* The nav is fixed, so an anchor jump would otherwise park the section
+   heading underneath it. This offsets every jump target by the nav's
+   height plus a little air. */
+.lp [id] {
+  scroll-margin-top: 88px;
+}
+
+/* Visible only once focused, which is the only time it is useful. */
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--copper);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translateY(-160%);
+  transition: transform 0.18s ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.lp-wrap {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding-inline: 1.5rem;
+}
+
+/* Section rhythm. Density is low here (this is a poster, not a
+   cockpit), so the gaps are large and the headings get more space
+   above them than below. */
+.lp-section {
+  padding-block: 7rem;
+  position: relative;
+}
+
+.lp-section--sunk {
+  background: var(--ground-deep);
+  border-block: 1px solid var(--line);
+}
+
+.lp-lede {
+  max-width: 34ch;
+  font-size: clamp(1.6rem, 3.4vw, 2.35rem);
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 45, 'WONK' 1;
+  font-weight: 600;
+  line-height: 1.14;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.lp-body {
+  max-width: 62ch;
+  margin-top: 1.15rem;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--ink-dim);
+}
+
+/* ── Navigation ───────────────────────────────────────────────────
+   One line, 68px, and it never grows. The blurred backdrop is driven
+   by a motion value rather than a scroll listener, so scrolling the
+   page costs no React renders. */
+.lp-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 68px;
+}
+
+.lp-nav-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 10, 9, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+  pointer-events: none;
+}
+
+.lp-nav-inner {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.lp-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 40, 'WONK' 1;
+  font-weight: 700;
+  font-size: 1.02rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.lp-mark:hover {
+  color: var(--ink);
+}
+
+.lp-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 1.65rem;
+  margin-left: auto;
+}
+
+.lp-nav-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--ink-dim);
+  transition: color 0.18s ease;
+  white-space: nowrap;
+}
+
+.lp-nav-link:hover {
+  color: var(--ink);
+}
+
+/* Under 720px the in-page anchors go, because the sections they point
+   at are a short scroll away on a phone anyway. Sign in stays: dropping
+   every link left returning users with no way into their account from
+   this page, which is a dead end, not a tidier nav. */
+@media (max-width: 720px) {
+  .lp-nav-links a[href^='#'] {
+    display: none;
+  }
+
+  .lp-nav-links {
+    gap: 1.1rem;
+  }
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────
+   Asymmetric split: the argument on the left, the fire on the right.
+   Centring this would waste the one asset that is genuinely ours. */
+.lp-hero {
+  min-height: calc(100dvh - 68px);
+  display: grid;
+  grid-template-columns: 1.04fr 0.96fr;
+  align-items: center;
+  gap: 4rem;
+  padding-block: 5rem 4.5rem;
+}
+
+.lp-hero-title {
+  font-size: clamp(2.6rem, 6.2vw, 4.4rem);
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 70, 'WONK' 1, 'opsz' 120;
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: -0.032em;
+  color: var(--ink);
+  max-width: 15ch;
+  text-wrap: balance;
+}
+
+/* The second line is the promise, so it carries the heat. Weight and
+   colour do the emphasis; there is no gradient on this text. */
+.lp-hero-title em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.lp-hero-sub {
+  margin-top: 1.5rem;
+  max-width: 46ch;
+  font-size: 1.06rem;
+  line-height: 1.65;
+  color: var(--ink-dim);
+}
+
+.lp-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 2.25rem;
+  flex-wrap: wrap;
+}
+
+.lp-hero-fire {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  perspective: 900px;
+}
+
+/* The flame leans toward the cursor. Rotation only: a fire that grew
+   as you approached would be claiming something about the day that is
+   not true. */
+.lp-hero-tilt {
+  position: relative;
+  z-index: 1;
+  transform-style: preserve-3d;
+}
+
+/* ── Embers ───────────────────────────────────────────────────────
+   Scoped to the hero, where the fire actually is. A page-wide fixed
+   field would sit behind every section's own background and repaint
+   on every scroll frame for nothing. */
+.lp-embers {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lp-embers span {
+  position: absolute;
+  bottom: 16%;
+  border-radius: 50%;
+  opacity: 0;
+  animation-name: lp-rise;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-out;
+  will-change: transform, opacity;
+}
+
+@keyframes lp-rise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0;
+  }
+  14% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate3d(var(--drift), -300px, 0) scale(0.3);
+    opacity: 0;
+  }
+}
+
+/* The pedestal the hearth stands on. A single soft pool of light,
+   the same one the app body uses, brought up to hero strength. */
+.lp-hero-fire::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 8% 0;
+  height: 46%;
+  background: radial-gradient(ellipse 60% 100% at 50% 100%, rgba(201, 123, 78, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+@media (max-width: 900px) {
+  .lp-hero {
+    grid-template-columns: 1fr;
+    gap: 2.75rem;
+    /* Clears the 68px fixed nav. The desktop value happened to exceed
+       it; this one has to say so explicitly or the fire slides under
+       the bar. */
+    padding-block: calc(68px + 1.5rem) 4rem;
+    min-height: 0;
+  }
+
+  .lp-hero-copy {
+    order: 2;
+  }
+
+  .lp-hero-fire {
+    order: 1;
+  }
+
+  .lp-hero-title {
+    max-width: 100%;
+  }
+}
+
+/* ── The month band ───────────────────────────────────────────────
+   A real month of real Coal components. The point of the section is
+   that a streak is legible from across the room, so the grid is the
+   widest thing on the page and nothing competes with it. */
+/* 430px, not more. Wider and the coals stop being a field and start
+   being scattered dots: the whole point is that a cold week reads as
+   one dark patch, which needs them close together. */
+.lp-month {
+  margin-top: 3.25rem;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  max-width: 430px;
+}
+
+.lp-month-head {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  max-width: 430px;
+  margin-top: 3.25rem;
+}
+
+.lp-month-head span {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--ash);
+  padding-block: 0.25rem;
+}
+
+.lp-month-head + .lp-month {
+  margin-top: 0.35rem;
+}
+
+.lp-month-layout {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4rem;
+  align-items: center;
+}
+
+.lp-month-field {
+  position: relative;
+}
+
+/* One halo for the whole field rather than a reaction per coal. It
+   blends in `screen`, so it genuinely adds light to the coals it
+   passes over instead of laying a film on top of them: the cursor
+   warms the month the way a hand warms a fire. */
+.lp-month-halo {
+  position: absolute;
+  inset: -34px;
+  z-index: 2;
+  border-radius: 24px;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+@media (max-width: 900px) {
+  .lp-month-layout {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .lp-month,
+  .lp-month-head {
+    max-width: 100%;
+  }
+}
+
+/* ── Heat scale ───────────────────────────────────────────────────
+   Four stops on a ramp, not four cards. The connecting line is the
+   actual heat gradient from tokens, so the section teaches the scale
+   by being the scale. */
+.lp-scale {
+  margin-top: 3.5rem;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+  position: relative;
+}
+
+.lp-scale-stop {
+  position: relative;
+}
+
+/* One segment per gap, drawn from this dot's centre to the next dot's
+   centre. Spanning the whole row instead would overshoot the last stop,
+   because the dots sit at the left edge of their columns rather than in
+   the middle. Each segment carries the gradient between the two
+   temperatures it joins, so the row is the heat ramp it describes. */
+.lp-scale-seg {
+  position: absolute;
+  top: 11px;
+  left: 11px;
+  right: calc(-2rem - 11px);
+  height: 1px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.lp-scale-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 1.1rem;
+  outline: 6px solid var(--ground);
+}
+
+.lp-scale-name {
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 30, 'WONK' 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.015em;
+  margin-bottom: 0.4rem;
+}
+
+.lp-scale-note {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  max-width: 24ch;
+}
+
+@media (max-width: 780px) {
+  .lp-scale {
+    grid-template-columns: 1fr 1fr;
+    gap: 2.25rem 1.5rem;
+  }
+
+  .lp-scale-seg {
+    display: none;
+  }
+}
+
+@media (max-width: 440px) {
+  .lp-scale {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── The missed day ───────────────────────────────────────────────
+   Deliberately not three equal columns. The middle day is the failure
+   and the failure is the point, so it burns largest and the two days
+   around it step down to it. */
+.lp-recovery {
+  margin-top: 3.75rem;
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1fr;
+  gap: 2.5rem;
+  align-items: end;
+}
+
+.lp-recovery-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.lp-recovery-name {
+  margin-top: 1.15rem;
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 30, 'WONK' 0;
+  font-weight: 600;
+  font-size: 1.02rem;
+  letter-spacing: -0.015em;
+}
+
+/* The dark day is named in the cold, so the section reads correctly
+   even with the copy stripped out. */
+.lp-recovery-day--dark .lp-recovery-name {
+  color: var(--cold);
+}
+
+.lp-recovery-note {
+  margin-top: 0.45rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  max-width: 27ch;
+}
+
+@media (max-width: 820px) {
+  .lp-recovery {
+    grid-template-columns: 1fr;
+    gap: 3rem;
+    justify-items: center;
+  }
+}
+
+/* ── Bento ────────────────────────────────────────────────────────
+   Seven cells for seven things, laid into exactly nine slots: two
+   wide cells and five single ones fill three rows with nothing left
+   over. Four of them carry a real product visual, so the grid is not
+   seven boxes of text pretending to be a layout. */
+.lp-bento {
+  margin-top: 3.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.lp-cell {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 208px;
+  transition: border-color 0.22s ease;
+  box-shadow: inset 0 1px 0 rgba(245, 235, 228, 0.035);
+}
+
+.lp-cell:hover {
+  border-color: var(--line-bright);
+}
+
+/* Where the cursor rests, the surface warms. The layer sits above the
+   cell background and below everything readable, so no text ever loses
+   contrast as the light moves across it. */
+.lp-cell-heat {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.lp-cell > *:not(.lp-cell-heat) {
+  position: relative;
+  z-index: 1;
+}
+
+.lp-cell--wide {
+  grid-column: span 2;
+}
+
+/* The heat cell earns its background: it is showing the ramp. */
+.lp-cell--heat {
+  background:
+    linear-gradient(150deg, rgba(242, 181, 68, 0.11), rgba(201, 123, 78, 0.05) 45%, transparent 78%),
+    var(--surface);
+  border-color: rgba(201, 123, 78, 0.24);
+}
+
+/* Cyan is reserved for the machine everywhere else in this product,
+   so the coaching cell is the only one allowed to use it. */
+.lp-cell--ai {
+  background: linear-gradient(150deg, rgba(79, 195, 217, 0.08), transparent 62%), var(--surface);
+  border-color: rgba(79, 195, 217, 0.22);
+}
+
+.lp-cell-icon {
+  color: var(--copper);
+  margin-bottom: 1.15rem;
+}
+
+.lp-cell--ai .lp-cell-icon {
+  color: var(--cyan);
+}
+
+.lp-cell h3 {
+  font-size: 1.08rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.015em;
+}
+
+.lp-cell p {
+  font-size: 0.9rem;
+  line-height: 1.62;
+  color: var(--ink-dim);
+  max-width: 40ch;
+}
+
+/* The strip of coals inside the wide cell. Decorative in position
+   but real in construction: same heat tokens as the app. */
+.lp-cell-coals {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 1.5rem;
+}
+
+.lp-cell-coal {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* The challenge grid, at cell scale. A fixed stretch of days filling
+   in is what the feature actually looks like, so the cell shows that
+   rather than leaving the space blank. */
+.lp-cell-quest {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 1.5rem;
+  max-width: 176px;
+}
+
+.lp-cell-quest span {
+  aspect-ratio: 1;
+  border-radius: 3px;
+}
+
+/* Real schedules, from the app's own reminder presets. */
+.lp-cell-sched {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 1.5rem;
+}
+
+.lp-sched {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--surface-sunk);
+  font-size: 0.76rem;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.lp-sched .mono {
+  color: var(--copper-lit);
+  font-size: 0.72rem;
+}
+
+/* The XP bar is the product's real mechanic, not a comparison chart. */
+.lp-cell-xp {
+  margin-top: auto;
+  padding-top: 1.5rem;
+}
+
+.lp-xp-track {
+  display: block;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.lp-xp-fill {
+  display: block;
+  height: 100%;
+  width: 62%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--copper-deep), var(--copper) 55%, var(--gold));
+  box-shadow: 0 0 10px rgba(242, 181, 68, 0.45);
+}
+
+.lp-cell-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  margin-top: auto;
+  padding-top: 1.5rem;
+  height: 62px;
+}
+
+.lp-cell-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .lp-bento {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lp-cell--wide {
+    grid-column: span 2;
+  }
+
+  /* Seven cells into two columns leaves the last one alone in a half
+     row. Let it span instead of trailing a gap beside it. */
+  .lp-bento > :last-child {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .lp-bento {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-cell--wide {
+    grid-column: span 1;
+  }
+
+  .lp-cell {
+    min-height: 0;
+    padding: 1.4rem;
+  }
+}
+
+/* ── Closing ──────────────────────────────────────────────────────
+   The one centred moment on the page, and it is earned: the message
+   is the whole design here. */
+.lp-close {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lp-close h2 {
+  font-size: clamp(2rem, 4.6vw, 3.1rem);
+  letter-spacing: -0.03em;
+  line-height: 1.06;
+  max-width: 18ch;
+  margin-top: 2.5rem;
+  text-wrap: balance;
+}
+
+.lp-close p {
+  margin-top: 1.15rem;
+  max-width: 46ch;
+  font-size: 1.02rem;
+  line-height: 1.65;
+}
+
+.lp-close-actions {
+  margin-top: 2.25rem;
+}
+
+/* ── Footer ───────────────────────────────────────────────────────── */
+.lp-foot {
+  border-top: 1px solid var(--line);
+  padding-block: 2.5rem 3rem;
+}
+
+.lp-foot-inner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.75rem 2rem;
+  align-items: start;
+}
+
+.lp-foot-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.lp-foot-note {
+  font-size: 0.82rem;
+  color: var(--ash);
+  max-width: 42ch;
+}
+
+.lp-foot-links {
+  display: flex;
+  gap: 1.5rem;
+  justify-self: end;
+}
+
+/* The copyright sits on its own rule below both columns: it belongs to
+   the whole page, not beside the links. */
+.lp-foot-copy {
+  grid-column: 1 / -1;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.78rem;
+  color: var(--ash);
+}
+
+@media (max-width: 640px) {
+  .lp-foot-inner {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .lp-foot-links {
+    justify-self: start;
+  }
+}
+
+/* ── Actions ──────────────────────────────────────────────────────
+   Compact rather than oversized: a landing CTA earns attention from
+   contrast and finish, not from bulk. These sit close to the app's own
+   .btn metrics so the button you press here is the button you meet on
+   the other side.
+
+   The wrapper's padding is cancelled by an equal negative margin. That
+   widens the area sensing the cursor, so the magnetic pull starts just
+   before you arrive, without moving anything in the layout. */
+.lp-cta-wrap {
+  display: inline-flex;
+  padding: 12px;
+  margin: -12px;
+}
+
+.lp-cta-magnet {
+  display: inline-flex;
+}
+
+.lp-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 0.56rem 1.1rem;
+  font-size: 0.875rem;
+  border-radius: 9px;
+}
+
+/* The bloom follows the cursor inside the button. It sits under the
+   label, so the text never loses contrast as the light moves. */
+.lp-cta-bloom {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.lp-cta-label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Depth comes from a lit top edge and a warm cast shadow, the way the
+   rest of the system does it. No flat fill, no black shadow. */
+.lp-cta.btn--primary {
+  background: linear-gradient(180deg, var(--copper-lit), var(--copper) 62%, var(--copper-deep));
+  border-color: rgba(255, 214, 165, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 238, 210, 0.5),
+    0 6px 18px rgba(90, 42, 14, 0.45);
+}
+
+.lp-cta.btn--primary:hover {
+  background: linear-gradient(180deg, var(--gold-lit), var(--copper-lit) 62%, var(--copper));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 246, 228, 0.62),
+    0 8px 24px rgba(120, 58, 18, 0.5),
+    var(--glow-copper);
+}
+
+.lp-cta.btn--secondary {
+  background: rgba(245, 235, 228, 0.035);
+  border-color: var(--line-bright);
+  box-shadow: inset 0 1px 0 rgba(245, 235, 228, 0.055);
+}
+
+.lp-cta.btn--secondary:hover {
+  background: rgba(201, 123, 78, 0.1);
+  border-color: var(--copper);
+  color: var(--copper-lit);
+}
+
+/* The arrow leans the way it is going to take you. */
+.lp-cta svg {
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp-cta:hover svg {
+  transform: translateX(3px);
+}
+
+.lp-cta:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-cta:active {
+    transform: none;
+  }
+
+  .lp-cta svg,
+  .lp-cta:hover svg {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Section padding collapses before the type does. */
+@media (max-width: 780px) {
+  .lp-section {
+    padding-block: 4.5rem;
+  }
+
+  .lp-wrap {
+    padding-inline: 1.25rem;
+  }
+}

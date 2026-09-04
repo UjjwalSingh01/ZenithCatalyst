@@ -37,6 +37,41 @@
   border-bottom: 1px solid var(--line);
 }
 
+.sidebar-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Collapsed, the rail is 76px: the mark and the toggle cannot sit side by
+   side without one of them hanging over the border, so they stack. */
+.sidebar[data-collapsed='true'] .sidebar-head {
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.9rem 0.5rem;
+}
+
+.sidebar[data-collapsed='true'] .sidebar-toggle {
+  margin-left: 0;
+}
+
+/* An icon with no label centres itself rather than sitting where the text
+   used to start. */
+.sidebar[data-collapsed='true'] .nav-item {
+  justify-content: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.sidebar[data-collapsed='true'] .sidebar-nav {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.sidebar[data-collapsed='true'] .sidebar-foot {
+  padding: 0.85rem 0.75rem;
+}
+
 .brand {
   font-family: var(--font-display);
   font-variation-settings: 'SOFT' 60, 'WONK' 1;

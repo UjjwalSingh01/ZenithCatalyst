@@ -6,8 +6,12 @@ import { FullPageSpinner } from './components/Spinner';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import GoogleCallback from './pages/GoogleCallback';
+import Landing from './pages/Landing';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import Homepage from './pages/Homepage';
 import Habits from './pages/Habits';
+import Challenges from './pages/Challenges';
 import Analytics from './pages/Analytics';
 import Coaching from './pages/Coaching';
 import Reminders from './pages/Reminders';
@@ -24,6 +28,9 @@ export default function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/auth/google/callback" element={<GoogleCallback />} />
@@ -38,6 +45,7 @@ export default function App() {
                     <Route index element={<Navigate to="home" replace />} />
                     <Route path="home" element={<Homepage />} />
                     <Route path="habits" element={<Habits />} />
+                    <Route path="challenges" element={<Challenges />} />
                     <Route path="analytics" element={<Analytics />} />
                     <Route path="coaching" element={<Coaching />} />
                     <Route path="reminders" element={<Reminders />} />

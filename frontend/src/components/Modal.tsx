@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { modalPanel, overlay } from '../lib/motion';
@@ -8,6 +9,13 @@ import { modalPanel, overlay } from '../lib/motion';
  * exit animation at all — they vanished mid-gesture. This gives them all a
  * single enter/settle/exit, plus Escape-to-close and a real close button,
  * which none of them had.
+ *
+ * It renders through a portal to <body>, and must: modals are called from
+ * inside the routed page, which sits under PageTransition's transform. A
+ * transformed ancestor becomes the containing block for `position: fixed`,
+ * so without the portal the overlay measures itself against the main column
+ * instead of the viewport — and the page's own stacking context traps it
+ * beneath the sidebar no matter how high its z-index goes.
  */
 export default function Modal({
     open,
@@ -31,7 +39,21 @@ export default function Modal({
         return () => window.removeEventListener('keydown', onKey);
     }, [open, onClose]);
 
-    return (
+    // The body keeps its scrollbar gutter while a modal is open, so opening
+    // one doesn't shift the page sideways underneath it.
+    useEffect(() => {
+        if (!open) return;
+        const { overflow, paddingRight } = document.body.style;
+        const gutter = window.innerWidth - document.documentElement.clientWidth;
+        document.body.style.overflow = 'hidden';
+        if (gutter > 0) document.body.style.paddingRight = `${gutter}px`;
+        return () => {
+            document.body.style.overflow = overflow;
+            document.body.style.paddingRight = paddingRight;
+        };
+    }, [open]);
+
+    return createPortal(
         <AnimatePresence>
             {open && (
                 <motion.div
@@ -63,6 +85,7 @@ export default function Modal({
                     </motion.div>
                 </motion.div>
             )}
-        </AnimatePresence>
+        </AnimatePresence>,
+        document.body,
     );
 }

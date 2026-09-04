@@ -304,6 +304,163 @@
   margin-top: 1rem;
 }
 
+/* ── Form groups ────────────────────────────────────────────────────
+   A fieldset is what lets a whole form go inert while it submits, so
+   the inputs stop accepting edits that are already in flight. It needs
+   the reset: UA styles give it a border, and a min-width of min-content
+   that quietly breaks any flex or grid laid out inside it. */
+.fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.05rem;
+}
+
+/* The group owns the rhythm here, so the adjacency rule above must not
+   add a second gap on top of it. */
+.fieldset .field + .field {
+  margin-top: 0;
+}
+
+.field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.field-optional {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ash);
+  margin-bottom: 0.45rem;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 460px) {
+  .field-row {
+    grid-template-columns: 1fr;
+    gap: 1.05rem;
+  }
+}
+
+/* ── Field messages ─────────────────────────────────────────────────
+   One slot per field, under the control it belongs to. Errors read as
+   what to do next, so they are sized to be read rather than tucked away
+   at label scale. */
+.field-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+
+.field-msg svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.field-msg--error {
+  color: #f19585;
+}
+
+/* Warning is copper and success is gold, which is the split the toasts
+   already use. Caps Lock sitting in gold next to a satisfied gold
+   requirement made a caution and a confirmation the same colour. */
+.field-msg--warn {
+  color: var(--copper-lit);
+}
+
+/* A met requirement goes gold, the same way a kept day does. */
+.field-msg--ok {
+  color: var(--gold);
+}
+
+.input[aria-invalid='true'] {
+  border-color: rgba(214, 67, 47, 0.5);
+}
+
+.input[aria-invalid='true']:focus {
+  border-color: var(--cinder);
+  box-shadow: 0 0 0 3px rgba(214, 67, 47, 0.16);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ── Password reveal ────────────────────────────────────────────────
+   Sits inside the field rather than beside it, so revealing a password
+   never changes the width of the control. */
+.input-wrap {
+  position: relative;
+}
+
+.input--has-toggle {
+  padding-right: 2.6rem;
+}
+
+.input-toggle {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ash);
+  cursor: pointer;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.input-toggle:hover {
+  color: var(--copper-lit);
+  background: rgba(245, 235, 228, 0.05);
+}
+
+.fieldset:disabled .input-toggle {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+/* ── Auth ───────────────────────────────────────────────────────────
+   The submit sits apart from the inputs: it is a different kind of act
+   from filling one in, and the gap is what says so. */
+.auth-submit {
+  margin-top: 0.35rem;
+}
+
+.auth-home {
+  color: inherit;
+  text-decoration: none;
+}
+
+.auth-home:hover {
+  color: var(--gold);
+}
+
 /* Range sliders (mood / energy) burn along the heat ramp. */
 .range {
   width: 100%;
@@ -408,6 +565,7 @@
 
 /* ── Progress ───────────────────────────────────────────────────── */
 .progress-track {
+  display: block;
   width: 100%;
   height: 5px;
   background: var(--heat-0);
@@ -422,6 +580,36 @@
   box-shadow: 0 0 10px rgba(242, 181, 68, 0.4);
 }
 
+/* ── Drag handle ────────────────────────────────────────────────────
+   Only the grip drags, so pressing anything else on a card behaves like a
+   button. `touch-action: none` is what lets a finger drag it at all —
+   without it the browser claims the gesture for scrolling. */
+.grip {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  padding: 0 0.1rem;
+  margin-left: -0.25rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--cold-dim);
+  cursor: grab;
+  touch-action: none;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.grip:hover,
+.grip:focus-visible {
+  color: var(--copper-lit);
+  background: var(--surface-2);
+}
+
+.grip:active {
+  cursor: grabbing;
+  color: var(--gold);
+}
+
 /* ── The rule — a habit's colour, as a strip of its own fuel ─────── */
 .rule {
   width: 3px;
@@ -431,11 +619,623 @@
   min-height: 38px;
 }
 
+/* ── The ledger — habits × days ──────────────────────────────────────
+   A grid of coals. Read across a row for one habit's hold on the
+   fortnight, down a column for what kind of day it was. The marks carry
+   the same vocabulary as everything else: lit is kept, cold is out, and
+   a day nobody could have kept is left blank rather than scored. */
+.ledger-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+/* ── Popover — panels anchored to a trigger, rendered at <body> ──── */
+.pop {
+  position: fixed;
+  z-index: 70;
+  background: var(--surface);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* A hairline of fire along the top edge, so a floating panel still belongs
+   to the same room as the hearth. */
+.pop::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--copper), transparent);
+}
+
+.pop-body {
+  padding: 0.9rem;
+}
+
+/* ── Date field ─────────────────────────────────────────────────── */
+.datefield {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.datefield:hover {
+  border-color: var(--line-bright);
+}
+
+.datefield[aria-expanded='true'] {
+  border-color: rgba(242, 181, 68, 0.45);
+  box-shadow: 0 0 0 3px rgba(242, 181, 68, 0.1);
+}
+
+.datefield[data-empty='true'] .datefield-value {
+  color: var(--ash);
+}
+
+/* A required date nobody has filled in yet says so quietly, in copper —
+   the field is unfinished, not wrong. */
+.datefield[data-invalid='true'] {
+  border-color: rgba(201, 123, 78, 0.5);
+}
+
+.datefield svg {
+  flex-shrink: 0;
+  color: var(--copper-lit);
+}
+
+.datefield-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.datefield-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: var(--ash);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.datefield-clear:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* ── Calendar ───────────────────────────────────────────────────── */
+.cal {
+  user-select: none;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.cal-title-wrap {
+  position: relative;
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+}
+
+.cal-title {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-variation-settings: 'SOFT' 40, 'WONK' 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.cal-week,
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-week {
+  margin-bottom: 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ash);
+  text-align: center;
+}
+
+.cal-day {
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-dim);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.cal-day:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.cal-day[data-outside='true'] {
+  color: var(--ash);
+  opacity: 0.5;
+}
+
+.cal-day:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* Today is a ring, not a fill — it is where you are, not what you picked. */
+.cal-day[data-state='today'] {
+  border-color: rgba(242, 181, 68, 0.45);
+  color: var(--gold);
+}
+
+/* The days between the two ends read as one band of low heat. */
+.cal-day[data-state='span'] {
+  background: rgba(201, 123, 78, 0.16);
+  border-radius: 0;
+  color: var(--ink);
+}
+
+.cal-day[data-state='edge'] {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #231206;
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(242, 181, 68, 0.45);
+}
+
+/* ── Range picker ────────────────────────────────────────────────────
+   The chip states the window; the panel under it changes it. Presets and
+   a hand-picked range live in the same panel because they are the same
+   thing to the ledger — an end date and a length. */
+
+/* The chip sits between two secondary buttons and has to read as one of
+   them — same height, same border, same radius — with the date itself in
+   mono so the figures line up as the window steps. */
+.ledger-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.38rem 0.7rem;
+  background: var(--surface-2);
+  border: 1px solid var(--line-bright);
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.79rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.ledger-range .mono {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-range svg {
+  flex-shrink: 0;
+  color: var(--copper-lit);
+}
+
+.ledger-range:hover {
+  border-color: var(--copper);
+  color: var(--copper-lit);
+}
+
+.ledger-range[aria-expanded='true'] {
+  color: var(--gold);
+  border-color: rgba(242, 181, 68, 0.45);
+  background: rgba(242, 181, 68, 0.08);
+  box-shadow: 0 0 0 3px rgba(242, 181, 68, 0.08);
+}
+
+.ledger-range[aria-expanded='true'] svg {
+  color: var(--gold);
+}
+
+.rangepick-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ash);
+  margin-bottom: 0.5rem;
+}
+
+.rangepick-seg {
+  display: flex;
+  width: 100%;
+}
+
+.rangepick-seg .seg-item {
+  flex: 1;
+  text-align: center;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+}
+
+.pop-body .divider--labelled {
+  margin: 0.9rem 0;
+}
+
+.rangepick-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.72rem;
+}
+
+.rangepick-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+/* The grid scrolls sideways on its own rather than pushing the page
+   wide — the name and progress columns stay pinned either side. */
+.ledger-scroll {
+  overflow-x: auto;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem 0.25rem;
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.ledger th,
+.ledger td {
+  padding: 0;
+  vertical-align: middle;
+}
+
+.ledger thead th {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.ledger tbody tr:not(:last-child) th,
+.ledger tbody tr:not(:last-child) td {
+  border-bottom: 1px solid var(--line);
+}
+
+/* ── Pinned name column ── */
+.ledger-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 178px;
+  max-width: 200px;
+  padding: 0.55rem 0.9rem 0.55rem 0;
+  background: var(--surface);
+  text-align: left;
+  font-weight: 400;
+}
+
+.ledger-name-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The grip lives inside the pinned column, so it stays reachable however far
+   the grid is scrolled sideways. */
+.ledger-name-inner .grip {
+  align-self: center;
+  padding: 0.2rem 0;
+  margin-left: -0.15rem;
+}
+
+/* A row being dragged keeps its own surface under it — without this the
+   cells behind it show through as it travels. */
+.ledger tr[data-dragging='true'] th,
+.ledger tr[data-dragging='true'] td {
+  background: var(--surface-2);
+}
+
+.ledger-name--head {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+.ledger-title {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 150px;
+}
+
+.ledger-sub {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--ash);
+  max-width: 150px;
+}
+
+/* ── Day columns ── */
+.ledger-day {
+  min-width: 46px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--ash);
+}
+
+.ledger-day-date,
+.ledger-day-name {
+  display: block;
+}
+
+.ledger-day-name {
+  opacity: 0.7;
+}
+
+/* Today is marked in gold, the same way it is everywhere else. */
+.ledger-day[data-today='true'] {
+  color: var(--gold);
+}
+
+/* A month's worth of columns has to give up some width to fit at all. */
+.ledger[data-dense='true'] .ledger-day {
+  min-width: 32px;
+  font-size: 0.6rem;
+}
+
+.ledger[data-dense='true'] .ledger-mark {
+  width: 19px;
+  height: 19px;
+}
+
+.ledger-cell {
+  text-align: center;
+}
+
+/* ── The marks ── */
+.ledger-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: transparent;
+  color: #231206;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ledger-mark:disabled {
+  cursor: default;
+}
+
+.ledger-mark--done {
+  background: var(--gold);
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(242, 181, 68, 0.45);
+}
+
+.ledger-mark--missed {
+  border-color: var(--cold-dim);
+}
+
+.ledger-mark--missed:hover {
+  border-color: var(--copper);
+}
+
+/* Today has not failed yet — it waits in copper. */
+.ledger-mark--open {
+  border-style: dashed;
+  border-color: var(--copper);
+  background: rgba(201, 123, 78, 0.1);
+}
+
+.ledger-mark--future {
+  border-color: var(--line);
+  border-width: 1px;
+}
+
+/* A day the habit wasn't on the plan is a hairline, not an empty circle —
+   an empty circle would read as a miss. */
+.ledger-mark--off::after {
+  content: '';
+  width: 9px;
+  height: 1.5px;
+  border-radius: 99px;
+  background: var(--line-bright);
+}
+
+.ledger tbody tr:hover .ledger-name,
+.ledger tbody tr:hover .ledger-progress {
+  background: var(--surface-2);
+}
+
+.ledger tbody tr:hover .ledger-cell {
+  background: rgba(245, 235, 228, 0.02);
+}
+
+/* ── Pinned progress column ── */
+.ledger-progress {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  min-width: 84px;
+  padding: 0.55rem 0 0.55rem 0.9rem;
+  background: var(--surface);
+  text-align: left;
+}
+
+.ledger-progress--head {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+.ledger-pct {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-dim);
+  margin-bottom: 0.3rem;
+}
+
+/* ── Legend ── */
+.ledger-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.75rem;
+  color: var(--ash);
+}
+
+.ledger-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ledger-key {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+}
+
+.ledger-key--done {
+  background: var(--gold);
+  box-shadow: 0 0 7px rgba(242, 181, 68, 0.45);
+}
+
+.ledger-key--missed {
+  border-color: var(--cold-dim);
+}
+
+.ledger-key--open {
+  border-style: dashed;
+  border-color: var(--copper);
+}
+
+.ledger-key--off {
+  border-radius: 99px;
+  height: 2px;
+  background: var(--line-bright);
+}
+
+.ledger-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1.25rem 1rem 2rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--ash);
+}
+
+.ledger-empty span {
+  max-width: 34ch;
+}
+
 /* ── Stat tile ──────────────────────────────────────────────────── */
 .stat {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+}
+
+/* The challenges tiles put the mark beside the number rather than above it,
+   so a row of four reads as one band of figures. */
+.stat--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.stat--row .stat-value {
+  display: block;
+  font-size: 1.7rem;
+}
+
+.stat--row .stat-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+}
+
+.stat-ring {
+  flex-shrink: 0;
+}
+
+.stat-disc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  flex-shrink: 0;
 }
 
 .stat-value {
@@ -898,9 +1698,65 @@
   }
 }
 
+@media (max-width: 760px) {
+  /* The ledger's controls stop sitting beside the title and take their own
+     line, aligned left with it rather than stranded against the edge. */
+  .page-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ledger-head {
+    align-items: flex-start;
+  }
+}
+
 @media (max-width: 640px) {
   .grid-4 {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Four figures at full size wrap into nonsense on a phone; the mark shrinks
+     and the number comes down with it. */
+  .stat--row {
+    gap: 0.6rem;
+  }
+
+  .stat--row .stat-value {
+    font-size: 1.35rem;
+  }
+
+  .stat-disc,
+  .stat-ring {
+    width: 34px;
+    height: 34px;
+  }
+
+  .rangepick-actions .btn,
+  .rangepick-seg .seg-item {
+    flex: 1;
+  }
+
+  /* The ledger gives its pinned columns back most of the room on a phone;
+     the day grid keeps scrolling under them. */
+  .ledger-name {
+    min-width: 128px;
+    max-width: 140px;
+    padding-right: 0.6rem;
+  }
+
+  .ledger-title,
+  .ledger-sub {
+    max-width: 104px;
+  }
+
+  .ledger-progress {
+    min-width: 62px;
+    padding-left: 0.6rem;
+  }
+
+  .ledger-head {
+    align-items: flex-start;
   }
 
   .modal-overlay {
@@ -929,5 +1785,22 @@
 
   .bubble {
     max-width: 88%;
+  }
+}
+
+@media (max-width: 420px) {
+  /* Two columns of stat tiles is one too many once the value has shrunk. */
+  .grid-4 {
+    grid-template-columns: 1fr;
+  }
+
+  .ledger-range {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .ledger-range .mono {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }

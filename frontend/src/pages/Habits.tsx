@@ -1,17 +1,18 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
 import {
     ChevronUp, ChevronRight, ChevronDown, Sparkles, ListTodo,
-    Edit2, Trash2, Bell, BellOff, Clock, Plus,
+    Edit2, Trash2, Bell, BellOff, Clock, Plus, Flag, GripVertical,
 } from 'lucide-react';
-import { fetchHabits, createHabit, deleteHabit, updateHabit, parseHabitFromText } from '../lib/queries';
+import { fetchHabits, createHabit, deleteHabit, updateHabit, reorderHabits, parseHabitFromText } from '../lib/queries';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { HabitListSkeleton } from '../components/Skeleton';
 import { errMsg } from '../lib/errors';
-import { fadeRise, staggerList, springs, useMotionOK } from '../lib/motion';
+import { springs, useMotionOK } from '../lib/motion';
 import Modal from '../components/Modal';
+import DateField from '../components/DateField';
 import { UnlitKindling } from '../components/Art';
 
 /* Habit colours read as pigments — earths and fired clays that belong in the
@@ -38,6 +39,18 @@ const DURATIONS = [
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+/** How long a challenge runs when you flag one without saying otherwise. */
+const CHALLENGE_DAYS = 30;
+
+const isoLocal = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const inDays = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return isoLocal(d);
+};
+
 const PRIORITY = {
     1: { icon: ChevronUp, label: 'High', color: 'var(--gold)' },
     2: { icon: ChevronRight, label: 'Medium', color: 'var(--copper-lit)' },
@@ -45,7 +58,14 @@ const PRIORITY = {
 } as const;
 
 // ─── Habit card ─────────────────────────────────────────────────────
-function HabitCard({ habit, onEdit, onDelete }: { habit: any; onEdit: (h: any) => void; onDelete: (id: string) => void }) {
+function HabitCard({ habit, onEdit, onDelete, onToggleChallenge, onGrab, onGripKey }: {
+    habit: any;
+    onEdit: (h: any) => void;
+    onDelete: (id: string) => void;
+    onToggleChallenge: (h: any) => void;
+    onGrab?: (e: React.PointerEvent) => void;
+    onGripKey?: (e: React.KeyboardEvent) => void;
+}) {
     const reminder = habit.reminders?.[0];
     const p = PRIORITY[(habit.priority ?? 2) as 1 | 2 | 3] ?? PRIORITY[2];
     const PIcon = p.icon;
@@ -53,11 +73,28 @@ function HabitCard({ habit, onEdit, onDelete }: { habit: any; onEdit: (h: any) =
     return (
         <div className="card card--sm">
             <div className="row row--top">
+                {onGrab && (
+                    <button
+                        type="button"
+                        className="grip"
+                        onPointerDown={onGrab}
+                        onKeyDown={onGripKey}
+                        aria-label={`Reorder ${habit.title}. Use the arrow keys to move it.`}
+                        title="Drag to reorder"
+                    >
+                        <GripVertical size={16} />
+                    </button>
+                )}
                 <span className="rule" style={{ background: habit.color || 'var(--copper)' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="t-bold" style={{ marginBottom: '0.15rem' }}>{habit.title}</div>
                     {habit.description && <p className="t-sm" style={{ marginBottom: '0.5rem' }}>{habit.description}</p>}
                     <div className="row row--wrap" style={{ gap: '0.35rem' }}>
+                        {habit.isChallenge && (
+                            <span className="badge badge--lit">
+                                <Flag size={11} /> Challenge{habit.endDate ? ` · ends ${habit.endDate}` : ''}
+                            </span>
+                        )}
                         {habit.category && <span className="badge badge--neutral">{habit.category}</span>}
                         <span className="badge badge--neutral" style={{ color: p.color }}>
                             <PIcon size={11} /> {p.label}
@@ -74,6 +111,15 @@ function HabitCard({ habit, onEdit, onDelete }: { habit: any; onEdit: (h: any) =
                     </div>
                 </div>
                 <div className="row" style={{ gap: '0.3rem', flexShrink: 0 }}>
+                    <button
+                        className={`btn btn--icon btn--sm ${habit.isChallenge ? 'btn--primary' : 'btn--ghost'}`}
+                        onClick={() => onToggleChallenge(habit)}
+                        aria-pressed={habit.isChallenge}
+                        aria-label={habit.isChallenge ? `Stop treating ${habit.title} as a challenge` : `Make ${habit.title} a challenge`}
+                        title={habit.isChallenge ? 'Stop treating as a challenge' : 'Make this a challenge'}
+                    >
+                        <Flag size={15} />
+                    </button>
                     <button className="btn btn--ghost btn--icon btn--sm" onClick={() => onEdit(habit)} aria-label={`Edit ${habit.title}`}>
                         <Edit2 size={15} />
                     </button>
@@ -83,6 +129,36 @@ function HabitCard({ habit, onEdit, onDelete }: { habit: any; onEdit: (h: any) =
                 </div>
             </div>
         </div>
+    );
+}
+
+/**
+ * One row of the draggable list.
+ *
+ * `dragListener={false}` with explicit drag controls means the card itself
+ * isn't a drag surface — only the grip is. Without that, every press on the
+ * edit or delete button would start a drag, and the card would wander when a
+ * user meant to press something on it.
+ */
+function DraggableHabit({ habit, onDragEnd, children }: {
+    habit: any;
+    onDragEnd: () => void;
+    children: (grab: (e: React.PointerEvent) => void) => React.ReactNode;
+}) {
+    const controls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={habit}
+            dragListener={false}
+            dragControls={controls}
+            onDragEnd={onDragEnd}
+            whileDrag={{ scale: 1.02, boxShadow: 'var(--shadow-lg)', zIndex: 2, cursor: 'grabbing' }}
+            transition={springs.settle}
+            style={{ position: 'relative' }}
+        >
+            {children((e) => controls.start(e))}
+        </Reorder.Item>
     );
 }
 
@@ -225,8 +301,18 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
         color: initial?.color || COLORS[0],
         startDate: initial?.startDate || today,
         endDate: initial?.endDate || '',
+        isChallenge: initial?.isChallenge || false,
         subHabits: initial?.subHabits?.map((s: any) => s.content || s).join('\n') || '',
     });
+    const motionOK = useMotionOK();
+
+    // Flagging a challenge without a finish line is the one invalid state, so
+    // turning it on proposes a month rather than leaving an empty field.
+    const toggleChallenge = () => setForm((f) => ({
+        ...f,
+        isChallenge: !f.isChallenge,
+        endDate: !f.isChallenge && !f.endDate ? inDays(CHALLENGE_DAYS) : f.endDate,
+    }));
 
     const [reminder, setReminder] = useState<ReminderState>(
         existing
@@ -243,6 +329,7 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
 
     const [nlp, setNlp] = useState('');
     const [nlpLoading, setNlpLoading] = useState(false);
+    const [problem, setProblem] = useState('');
     const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
         setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -268,6 +355,14 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // The dates are our own control now, so the browser no longer polices
+        // them — these two rules have to be checked here.
+        if (!form.startDate) return setProblem('Pick the day this starts.');
+        if (form.isChallenge && !form.endDate) return setProblem('A challenge needs an end date.');
+        if (form.endDate && form.endDate < form.startDate) return setProblem('It cannot end before it starts.');
+        setProblem('');
+
         const subs = form.subHabits.split('\n').map((s: string) => s.trim()).filter(Boolean);
         const payload: Record<string, unknown> = {
             ...form,
@@ -362,13 +457,57 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
 
             <div className="grid-2" style={{ gap: '0.75rem' }}>
                 <div>
-                    <label className="label">Starts</label>
-                    <input className="input" type="date" value={form.startDate} onChange={set('startDate')} required />
+                    <label className="label" htmlFor="habit-starts">Starts</label>
+                    <DateField
+                        id="habit-starts"
+                        value={form.startDate}
+                        onChange={(d) => setForm((f) => ({ ...f, startDate: d }))}
+                        placeholder="Pick a start"
+                    />
                 </div>
                 <div>
-                    <label className="label">Ends</label>
-                    <input className="input" type="date" value={form.endDate} onChange={set('endDate')} />
+                    <label className="label" htmlFor="habit-ends">
+                        Ends{form.isChallenge && <span className="t-gold"> — required</span>}
+                    </label>
+                    <DateField
+                        id="habit-ends"
+                        value={form.endDate}
+                        onChange={(d) => setForm((f) => ({ ...f, endDate: d }))}
+                        min={form.startDate || undefined}
+                        placeholder={form.isChallenge ? 'Pick a finish line' : 'Runs on forever'}
+                        clearable={!form.isChallenge}
+                        required={form.isChallenge}
+                    />
                 </div>
+            </div>
+
+            <div className={`card card--sm ${form.isChallenge ? 'card--lit' : 'card--sunk'}`} style={{ padding: '1rem' }}>
+                <button
+                    type="button"
+                    className="row row--between"
+                    onClick={toggleChallenge}
+                    aria-pressed={form.isChallenge}
+                    style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', textAlign: 'left', padding: 0 }}
+                >
+                    <span className="row">
+                        <Flag size={17} color={form.isChallenge ? 'var(--gold)' : 'var(--cold)'} />
+                        <span>
+                            <span className="t-semi" style={{ display: 'block', fontSize: '0.88rem' }}>Make this a challenge</span>
+                            <span className="t-xs t-ash">
+                                {form.isChallenge
+                                    ? 'It runs to its end date and shows on the Challenges page'
+                                    : 'A habit with a finish line — needs an end date'}
+                            </span>
+                        </span>
+                    </span>
+                    <span className="switch" data-on={form.isChallenge}>
+                        <motion.span
+                            className="switch-knob"
+                            animate={{ x: form.isChallenge ? 18 : 0 }}
+                            transition={motionOK ? springs.settle : { duration: 0 }}
+                        />
+                    </span>
+                </button>
             </div>
 
             <div>
@@ -382,6 +521,8 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
             </div>
 
             <ReminderSection reminder={reminder} onChange={setReminder} />
+
+            {problem && <div className="banner banner--error">{problem}</div>}
 
             <div className="modal-actions" style={{ marginTop: 0 }}>
                 <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
@@ -435,7 +576,70 @@ export default function Habits() {
         onError: (e) => toast.error(errMsg(e, 'Could not delete the habit')),
     });
 
-    const filtered = habits.filter((h: any) => filter === 'all' || h.category === filter);
+    /* ── Manual ordering ──────────────────────────────────────────────
+       The list is server state, but a drag has to move it now, not after a
+       round trip — so the order is mirrored locally, moved on drag, and
+       written when the drag ends. */
+    const [items, setItems] = useState<any[]>([]);
+    const itemsRef = useRef<any[]>([]);
+    const dragging = useRef(false);
+    itemsRef.current = items;
+
+    const serverOrder = habits.map((h: any) => h.id).join();
+    useEffect(() => {
+        // Never let a background refetch yank the list out from under a drag.
+        if (!dragging.current) setItems(habits);
+    }, [serverOrder]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const reorderMut = useMutation({
+        mutationFn: reorderHabits,
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['habits'] }),
+        onError: (e) => {
+            toast.error(errMsg(e, 'Could not save the new order'));
+            setItems(habits); // put it back the way the server has it
+        },
+    });
+
+    const filtered = items.filter((h: any) => filter === 'all' || h.category === filter);
+
+    /* A filtered list only shows some of the habits, so the dragged sequence
+       is spliced back into the slots those habits occupy in the full list —
+       the ones you can't see keep their places. */
+    const applyOrder = (nextVisible: any[]) => {
+        const visible = new Set(nextVisible.map((h) => h.id));
+        let k = 0;
+        const merged = itemsRef.current.map((h) => (visible.has(h.id) ? nextVisible[k++] : h));
+        setItems(merged);
+        return merged;
+    };
+
+    const saveOrder = () => {
+        dragging.current = false;
+        reorderMut.mutate(itemsRef.current.map((h) => h.id));
+    };
+
+    // The grip is a real button, so the list can be reordered from the
+    // keyboard as well as by dragging.
+    const nudge = (habit: any, dir: -1 | 1) => {
+        const from = filtered.findIndex((h: any) => h.id === habit.id);
+        const to = from + dir;
+        if (from < 0 || to < 0 || to >= filtered.length) return;
+        const next = [...filtered];
+        next.splice(to, 0, next.splice(from, 1)[0]);
+        const merged = applyOrder(next);
+        reorderMut.mutate(merged.map((h) => h.id));
+    };
+
+    // The flag on a card is the quick way in; a habit with no end date has to
+    // pick one first, so it opens the form rather than failing at the server.
+    const toggleChallenge = (habit: any) => {
+        if (!habit.isChallenge && !habit.endDate) {
+            toast.info('A challenge needs an end date — set one and save.');
+            setEditing({ ...habit, isChallenge: true, endDate: inDays(CHALLENGE_DAYS) });
+            return;
+        }
+        updateMut.mutate({ id: habit.id, data: { isChallenge: !habit.isChallenge } });
+    };
 
     const remove = async (id: string) => {
         const ok = await confirm({
@@ -493,26 +697,41 @@ export default function Habits() {
                     </button>
                 </div>
             ) : (
-                <motion.div
+                <Reorder.Group
+                    as="div"
+                    axis="y"
                     className="stack"
-                    variants={motionOK ? staggerList : undefined}
-                    initial={motionOK ? 'hidden' : false}
-                    animate="show"
+                    values={filtered}
+                    onReorder={applyOrder}
+                    layoutScroll
                 >
                     <AnimatePresence mode="popLayout">
                         {filtered.map((habit: any) => (
-                            <motion.div
-                                key={habit.id}
-                                layout
-                                variants={motionOK ? fadeRise : undefined}
-                                exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.18 } }}
-                                transition={springs.settle}
-                            >
-                                <HabitCard habit={habit} onEdit={setEditing} onDelete={remove} />
-                            </motion.div>
+                            <DraggableHabit key={habit.id} habit={habit} onDragEnd={saveOrder}>
+                                {(grab) => (
+                                    <HabitCard
+                                        habit={habit}
+                                        onEdit={setEditing}
+                                        onDelete={remove}
+                                        onToggleChallenge={toggleChallenge}
+                                        onGrab={(e) => {
+                                            dragging.current = true;
+                                            // A press that never becomes a drag still has to
+                                            // release the guard, or refetches stay blocked.
+                                            window.addEventListener('pointerup', () => { dragging.current = false; }, { once: true });
+                                            grab(e);
+                                        }}
+                                        onGripKey={(e) => {
+                                            if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+                                            e.preventDefault();
+                                            nudge(habit, e.key === 'ArrowUp' ? -1 : 1);
+                                        }}
+                                    />
+                                )}
+                            </DraggableHabit>
                         ))}
                     </AnimatePresence>
-                </motion.div>
+                </Reorder.Group>
             )}
 
             <Modal open={creating} onClose={() => setCreating(false)} title="New habit" width={580}>

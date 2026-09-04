@@ -3,7 +3,7 @@ import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-do
 import { AnimatePresence, motion } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import {
-    Home, CheckSquare, BarChart2, Bot, Bell, User,
+    Home, CheckSquare, Flag, BarChart2, Bot, Bell, User,
     Flame, Trophy, LogOut, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,6 +16,7 @@ import LevelUp from './LevelUp';
 const NAV = [
     { to: '/app/home', icon: Home, label: 'Today' },
     { to: '/app/habits', icon: CheckSquare, label: 'Habits' },
+    { to: '/app/challenges', icon: Flag, label: 'Challenges' },
     { to: '/app/analytics', icon: BarChart2, label: 'Analytics' },
     { to: '/app/coaching', icon: Bot, label: 'Coach' },
     { to: '/app/reminders', icon: Bell, label: 'Reminders' },
@@ -75,8 +76,7 @@ export default function AppLayout() {
                     <Mark size={24} />
                     {!collapsed && <span className="brand">Zenith Catalyst</span>}
                     <button
-                        className="btn btn--ghost btn--icon btn--sm"
-                        style={{ marginLeft: 'auto' }}
+                        className="btn btn--ghost btn--icon btn--sm sidebar-toggle"
                         onClick={() => setCollapsed((c) => !c)}
                         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
