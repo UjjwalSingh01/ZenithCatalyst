@@ -20,6 +20,7 @@ export async function createHabit(userId: string, data: {
     endDate?: string;
     subHabits?: string[];
     aiGenerated?: boolean;
+    isChallenge?: boolean;
     reminder?: ReminderConfig;
 }) {
     const { subHabits, reminder, ...habitData } = data;
@@ -61,9 +62,13 @@ export async function createHabit(userId: string, data: {
     return habit;
 }
 
-export async function getHabits(userId: string, includeArchived = false) {
+export async function getHabits(userId: string, includeArchived = false, onlyChallenges = false) {
     return prisma.habit.findMany({
-        where: { userId, ...(includeArchived ? {} : { isArchived: false }) },
+        where: {
+            userId,
+            ...(includeArchived ? {} : { isArchived: false }),
+            ...(onlyChallenges ? { isChallenge: true } : {}),
+        },
         include: {
             subHabits: true,
             reminders: {
@@ -80,7 +85,9 @@ export async function getHabits(userId: string, includeArchived = false) {
                 },
             },
         },
-        orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }],
+        // Manual order first; habits nobody has dragged all sit at 0 and
+        // fall back to priority, then age.
+        orderBy: [{ position: 'asc' }, { priority: 'asc' }, { createdAt: 'asc' }],
     });
 }
 
@@ -109,10 +116,20 @@ export async function updateHabit(userId: string, habitId: string, data: {
     color?: string;
     endDate?: string;
     isArchived?: boolean;
+    isChallenge?: boolean;
     reminder?: ReminderConfig;
 }) {
     const habit = await prisma.habit.findFirst({ where: { id: habitId, userId } });
     if (!habit) throw new AppError(404, 'Habit not found');
+
+    // Whether the habit ends up time-boxed depends on both the payload and what
+    // is already stored — clearing the end date of a challenge is as invalid as
+    // promoting an open-ended habit to one.
+    const willBeChallenge = data.isChallenge ?? habit.isChallenge;
+    const willEnd = data.endDate !== undefined ? data.endDate : habit.endDate;
+    if (willBeChallenge && !willEnd) {
+        throw new AppError(400, 'A challenge needs an end date');
+    }
 
     const { reminder, ...updateData } = data;
 
@@ -142,6 +159,42 @@ export async function updateHabit(userId: string, habitId: string, data: {
     }
 
     return updated;
+}
+
+/**
+ * Writes the order the user dragged a list into.
+ *
+ * The payload is usually a *subset* — the habits page under a category
+ * filter, or the challenge ledger, which only ever shows challenges. So the
+ * given sequence is spliced into the slots those habits already occupy in the
+ * full list, leaving everything the user could not see exactly where it was.
+ * Numbering only the ids that were sent would hand positions 0..3 to four
+ * challenges and collide them with everything else.
+ *
+ * Positions are then rewritten across the whole list rather than patched, so
+ * it can never drift into duplicate or stale values however often it is
+ * dragged, and unknown or someone else's ids are dropped rather than trusted.
+ */
+export async function reorderHabits(userId: string, ids: string[]) {
+    const all = await prisma.habit.findMany({
+        where: { userId },
+        select: { id: true },
+        orderBy: [{ position: 'asc' }, { priority: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    const owned = new Set(all.map((h) => h.id));
+    const sequence = ids.filter((id) => owned.has(id));
+    const moving = new Set(sequence);
+
+    let next = 0;
+    const ordered = all.map((h) => (moving.has(h.id) ? sequence[next++] : h.id));
+
+    await prisma.$transaction(
+        ordered.map((id, index) => prisma.habit.updateMany({
+            where: { id, userId },
+            data: { position: index },
+        })),
+    );
 }
 
 export async function deleteHabit(userId: string, habitId: string) {
@@ -221,7 +274,7 @@ export async function getHabitsForDate(userId: string, date: string) {
             },
             dates: { where: { date } },
         },
-        orderBy: [{ priority: 'asc' }],
+        orderBy: [{ position: 'asc' }, { priority: 'asc' }, { createdAt: 'asc' }],
     });
 
     return habits.map((h) => {

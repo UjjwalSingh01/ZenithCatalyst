@@ -55,7 +55,13 @@ export const createHabitSchema = z.object({
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
     subHabits: z.array(z.string().min(1).max(200)).default([]),
     aiGenerated: z.boolean().default(false),
+    isChallenge: z.boolean().default(false),
     reminder: reminderConfigSchema,
+}).refine((d) => !d.isChallenge || !!d.endDate, {
+    // A challenge is a commitment to a stretch of days. Without an end it is
+    // just a habit, and the ledger would have nothing to measure against.
+    message: 'A challenge needs an end date',
+    path: ['endDate'],
 });
 
 export const updateHabitSchema = z.object({
@@ -67,7 +73,14 @@ export const updateHabitSchema = z.object({
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
     isArchived: z.boolean().optional(),
+    // The end-date rule can't be checked here — the habit may already have one
+    // on the row. `updateHabit` enforces it against the stored value.
+    isChallenge: z.boolean().optional(),
     reminder: reminderConfigSchema,
+});
+
+export const reorderHabitsSchema = z.object({
+    ids: z.array(z.string().uuid()).min(1).max(500),
 });
 
 export const toggleHabitDateSchema = z.object({

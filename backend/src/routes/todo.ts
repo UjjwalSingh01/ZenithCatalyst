@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
-import { createHabitSchema, updateHabitSchema, toggleHabitDateSchema, toggleSubHabitDateSchema } from '../utils/schemas';
+import {
+    createHabitSchema, updateHabitSchema, reorderHabitsSchema,
+    toggleHabitDateSchema, toggleSubHabitDateSchema,
+} from '../utils/schemas';
 import * as habitService from '../services/habit.service';
 
 const router = Router();
@@ -11,7 +14,8 @@ router.use(authenticate);
 router.get('/', async (req: AuthRequest, res, next) => {
     try {
         const includeArchived = req.query.includeArchived === 'true';
-        const habits = await habitService.getHabits(req.userId!, includeArchived);
+        const onlyChallenges = req.query.challenge === 'true';
+        const habits = await habitService.getHabits(req.userId!, includeArchived, onlyChallenges);
         res.json({ success: true, data: habits });
     } catch (err) { next(err); }
 });
@@ -20,6 +24,14 @@ router.post('/', validate(createHabitSchema), async (req: AuthRequest, res, next
     try {
         const habit = await habitService.createHabit(req.userId!, req.body);
         res.status(201).json({ success: true, data: habit });
+    } catch (err) { next(err); }
+});
+
+// Ordering — declared before '/:id' so "order" is never read as an id.
+router.patch('/order', validate(reorderHabitsSchema), async (req: AuthRequest, res, next) => {
+    try {
+        await habitService.reorderHabits(req.userId!, req.body.ids);
+        res.json({ success: true, message: 'Order saved' });
     } catch (err) { next(err); }
 });
 

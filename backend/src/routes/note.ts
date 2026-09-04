@@ -15,6 +15,25 @@ router.get('/', async (req: AuthRequest, res, next) => {
     } catch (err) { next(err); }
 });
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+router.get('/grid', async (req: AuthRequest, res, next) => {
+    try {
+        const today = new Date();
+        const fallbackFrom = new Date(today);
+        fallbackFrom.setDate(fallbackFrom.getDate() - 13);
+
+        const from = DATE_RE.test(String(req.query.from)) ? String(req.query.from) : fallbackFrom.toISOString().split('T')[0];
+        const rawTo = DATE_RE.test(String(req.query.to)) ? String(req.query.to) : today.toISOString().split('T')[0];
+        // A reversed window would otherwise come back as an empty grid with no
+        // hint as to why; swallow it by clamping instead.
+        const to = rawTo >= from ? rawTo : from;
+
+        const data = await analyticsService.getHabitGrid(req.userId!, from, to);
+        res.json({ success: true, data });
+    } catch (err) { next(err); }
+});
+
 router.get('/mood-correlation', async (req: AuthRequest, res, next) => {
     try {
         const data = await analyticsService.getMoodCorrelation(req.userId!);

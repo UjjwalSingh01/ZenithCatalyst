@@ -107,6 +107,17 @@ model Habit {
   isArchived  Boolean  @default(false)
   aiGenerated Boolean  @default(false)
 
+  // Where the user dragged this habit. Everything defaults to 0 so an
+  // untouched list still falls back to priority, then age — the order it had
+  // before anyone dragged anything.
+  position    Int      @default(0)
+
+  // A challenge is a habit you have committed to for a fixed stretch — same
+  // row, same completion records, same reminders. Only the commitment differs,
+  // so it is a flag rather than a second entity: everything that works for a
+  // habit keeps working, and `endDate` is required while this is true.
+  isChallenge Boolean  @default(false)
+
   userId String
   user   User   @relation("UserHabits", fields: [userId], references: [id], onDelete: Cascade)
 

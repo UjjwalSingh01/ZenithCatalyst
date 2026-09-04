@@ -111,12 +111,136 @@ export async function getMoodCorrelation(userId: string) {
     return { correlation, moodLogs };
 }
 
+/**
+ * The habit × day grid for one window of dates — the ledger view.
+ *
+ * `getAnalytics` only ever reports aggregates, so it cannot answer "which day
+ * did I drop this one?". This returns a mark per habit per day instead, and
+ * the marks distinguish four different silences: a day the habit wasn't on
+ * the plan yet, a day still ahead, today (still open), and a day genuinely
+ * let go. Lumping those together would read as failure for days nobody had a
+ * chance to keep.
+ */
+export type GridMark = 'done' | 'missed' | 'open' | 'future' | 'off';
+
+export async function getHabitGrid(userId: string, from: string, to: string) {
+    const dates = eachDay(from, to);
+    const today = new Date().toISOString().split('T')[0];
+
+    const [habits, user] = await Promise.all([
+        prisma.habit.findMany({
+            // The ledger is the challenges' page — ordinary habits are kept in
+            // the charts, and mixing them here would bury the commitments.
+            where: {
+                userId, isArchived: false, isChallenge: true,
+                startDate: { lte: to },
+                OR: [{ endDate: null }, { endDate: { gte: from } }],
+            },
+            include: { dates: { where: { date: { gte: from, lte: to } } } },
+            orderBy: [{ position: 'asc' }, { priority: 'asc' }, { createdAt: 'asc' }],
+        }),
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: { currentStreak: true, longestStreak: true },
+        }),
+    ]);
+
+    // Per-day totals, accumulated as we walk each habit's row.
+    const dayTally = new Map(dates.map((d) => [d, { completed: 0, total: 0 }]));
+
+    const rows = habits.map((h) => {
+        const byDate = new Map(h.dates.map((d) => [d.date, d.completed]));
+        let done = 0;
+        let missed = 0;
+        let elapsed = 0; // on-plan days that have already had their chance
+
+        const marks: GridMark[] = dates.map((date) => {
+            const onPlan = date >= h.startDate && (!h.endDate || date <= h.endDate);
+            if (!onPlan) return 'off';
+            if (byDate.get(date)) {
+                done++;
+                elapsed++;
+                const t = dayTally.get(date)!;
+                t.completed++; t.total++;
+                return 'done';
+            }
+            if (date > today) return 'future';
+            if (date === today) {
+                // Today counts toward the day's denominator so the chart reads
+                // as "so far today" and climbs — but never toward `missed`,
+                // which would score a day still in progress as a failure.
+                dayTally.get(date)!.total++;
+                return 'open';
+            }
+            missed++;
+            elapsed++;
+            dayTally.get(date)!.total++;
+            return 'missed';
+        });
+
+        return {
+            id: h.id,
+            title: h.title,
+            description: h.description,
+            category: h.category ?? 'Other',
+            color: h.color,
+            startDate: h.startDate,
+            endDate: h.endDate,
+            marks,
+            completed: done,
+            missed,
+            // Rate is measured against days that actually elapsed, so a habit
+            // started mid-window isn't punished for the days before it existed.
+            completionRate: elapsed > 0 ? Math.round((done / elapsed) * 100) : 0,
+        };
+    });
+
+    const timeline = dates.map((date) => {
+        const t = dayTally.get(date)!;
+        return {
+            date,
+            completed: t.completed,
+            total: t.total,
+            completionRate: t.total > 0 ? Math.round((t.completed / t.total) * 100) : 0,
+        };
+    });
+
+    const completed = rows.reduce((s, r) => s + r.completed, 0);
+    const missed = rows.reduce((s, r) => s + r.missed, 0);
+
+    return {
+        from, to, dates, habits: rows, timeline,
+        summary: {
+            overallRate: completed + missed > 0 ? Math.round((completed / (completed + missed)) * 100) : 0,
+            completed,
+            missed,
+            totalHabits: rows.length,
+            currentStreak: user?.currentStreak ?? 0,
+            longestStreak: user?.longestStreak ?? 0,
+        },
+    };
+}
+
 export async function upsertMoodLog(userId: string, date: string, mood: number, energy: number, note?: string) {
     return prisma.moodLog.upsert({
         where: { userId_date: { userId, date } },
         create: { userId, date, mood, energy, note },
         update: { mood, energy, note },
     });
+}
+
+/** Inclusive list of "YYYY-MM-DD" between two dates. Capped so a hand-typed
+    query string can't ask for a decade's worth of columns. */
+function eachDay(from: string, to: string, max = 62): string[] {
+    const DAY = 86_400_000;
+    const end = Date.parse(`${to}T00:00:00.000Z`);
+    let cursor = Date.parse(`${from}T00:00:00.000Z`);
+    const out: string[] = [];
+    while (cursor <= end && out.length < max) {
+        out.push(new Date(cursor).toISOString().split('T')[0]);
+        cursor += DAY;
+    }
+    return out;
 }
 
 function rangeToDays(range: string): number {
