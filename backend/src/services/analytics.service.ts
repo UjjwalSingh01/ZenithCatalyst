@@ -150,6 +150,11 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
 
     const rows = habits.map((h) => {
         const byDate = new Map(h.dates.map((d) => [d.date, d.completed]));
+        // Notes ride alongside the marks rather than inside them: a day can
+        // carry a note at any mark, including one that went out.
+        const byNote = new Map(
+            h.dates.filter((d) => d.note).map((d) => [d.date, d.note as string]),
+        );
         let done = 0;
         let missed = 0;
         let elapsed = 0; // on-plan days that have already had their chance
@@ -187,6 +192,8 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
             startDate: h.startDate,
             endDate: h.endDate,
             marks,
+            // Same length and order as `marks`, so the row reads by index.
+            notes: dates.map((date) => byNote.get(date) ?? null),
             completed: done,
             missed,
             // Rate is measured against days that actually elapsed, so a habit

@@ -225,6 +225,29 @@ export async function toggleHabitDate(userId: string, habitId: string, date: str
     return habitDate;
 }
 
+/**
+ * Write (or clear) the note on one habit's day.
+ *
+ * Deliberately never touches `completed` or `xpAwarded`. Writing a note is not
+ * doing the thing, so it must not mark the day done, and it must not award XP
+ * — otherwise a note becomes a way to farm levels. If no row exists yet the
+ * day is created un-completed, which is what it already was.
+ */
+export async function setHabitDateNote(userId: string, habitId: string, date: string, note: string) {
+    const habit = await prisma.habit.findFirst({ where: { id: habitId, userId } });
+    if (!habit) throw new AppError(404, 'Habit not found');
+
+    // Whitespace-only is a cleared note, not a note made of spaces.
+    const trimmed = note.trim();
+    const value = trimmed.length > 0 ? trimmed : null;
+
+    return prisma.habitDate.upsert({
+        where: { habitId_date: { habitId, date } },
+        create: { habitId, date, completed: false, xpAwarded: 0, note: value },
+        update: { note: value },
+    });
+}
+
 export async function toggleSubHabitDate(userId: string, subHabitId: string, date: string, completed: boolean) {
     const subHabit = await prisma.subHabit.findFirst({
         where: { id: subHabitId, habit: { userId } },

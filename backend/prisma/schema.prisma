@@ -154,6 +154,15 @@ model HabitDate {
   habit     Habit   @relation(fields: [habitId], references: [id], onDelete: Cascade)
   xpAwarded Int     @default(0)
 
+  // What happened on this day. A challenge is usually a different task each
+  // time ("day 9: ran the 5k route"), and the tick alone cannot carry that.
+  // It hangs off the day rather than the habit because it describes the day.
+  //
+  // Independent of `completed` on purpose: a note explaining why a day went
+  // out is worth as much as one recording what was done, so a row may exist
+  // carrying only a note.
+  note      String?
+
   @@unique([habitId, date])
 }
 

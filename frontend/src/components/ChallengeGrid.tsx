@@ -3,7 +3,8 @@ import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react'
 import { Check, CircleSlash, GripVertical, Star } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
-import { fetchHabitGrid, toggleHabit, reorderHabits } from '../lib/queries';
+import { fetchHabitGrid, toggleHabit, reorderHabits, setHabitDayNote } from '../lib/queries';
+import DayNote from './DayNote';
 import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
 import { springs, staggerList, useMotionOK } from '../lib/motion';
@@ -100,45 +101,80 @@ function Tile({ mark, value, suffix = '', label, color }: {
 }
 
 // ─── One cell ───────────────────────────────────────────────────────
-function Cell({ mark, date, title, onToggle, busy }: {
+function Cell({ mark, date, title, note, onToggle, onNote, busy }: {
     mark: Mark;
     date: string;
     title: string;
+    note: string | null;
     onToggle: () => void;
+    onNote: (anchor: HTMLElement) => void;
     busy: boolean;
 }) {
     const motionOK = useMotionOK();
     const live = mark !== 'off' && mark !== 'future';
+    const wrap = useRef<HTMLSpanElement>(null);
+
+    const label = [
+        `${title} on ${format(parseISO(date), 'EEEE d MMMM')} — ${MARK_WORD[mark]}`,
+        note ? `Note: ${note}` : null,
+        live ? 'Press N to write a note for this day.' : null,
+    ].filter(Boolean).join('. ');
 
     return (
         <td className="ledger-cell">
-            <motion.button
-                type="button"
-                className={`ledger-mark ledger-mark--${mark}`}
-                disabled={!live || busy}
-                onClick={live ? onToggle : undefined}
-                aria-label={`${title} on ${format(parseISO(date), 'EEEE d MMMM')} — ${MARK_WORD[mark]}`}
-                aria-pressed={mark === 'done'}
-                animate={mark === 'done' && motionOK ? { scale: [1, 1.18, 1] } : undefined}
-                transition={springs.strike}
-                whileHover={live && motionOK ? { scale: 1.14 } : undefined}
-                whileTap={live && motionOK ? { scale: 0.9 } : undefined}
-            >
-                <AnimatePresence initial={false}>
-                    {mark === 'done' && (
-                        <motion.span
-                            key="tick"
-                            initial={motionOK ? { scale: 0, rotate: -30 } : false}
-                            animate={{ scale: 1, rotate: 0 }}
-                            exit={{ scale: 0, opacity: 0 }}
-                            transition={springs.strike}
-                            style={{ display: 'flex' }}
-                        >
-                            <Check size={11} strokeWidth={3.5} />
-                        </motion.span>
-                    )}
-                </AnimatePresence>
-            </motion.button>
+            <span className="ledger-cell-wrap" ref={wrap}>
+                <motion.button
+                    type="button"
+                    className={`ledger-mark ledger-mark--${mark}`}
+                    disabled={!live || busy}
+                    onClick={live ? onToggle : undefined}
+                    /* The note lives behind a key rather than a second tab
+                       stop. This grid is habits × days, so one extra focusable
+                       control per cell would more than double the tab order
+                       for everyone, to reach a field most days never use. */
+                    onKeyDown={(e) => {
+                        if (!live || (e.key !== 'n' && e.key !== 'N')) return;
+                        e.preventDefault();
+                        if (wrap.current) onNote(wrap.current);
+                    }}
+                    aria-label={label}
+                    aria-pressed={mark === 'done'}
+                    animate={mark === 'done' && motionOK ? { scale: [1, 1.18, 1] } : undefined}
+                    transition={springs.strike}
+                    whileHover={live && motionOK ? { scale: 1.14 } : undefined}
+                    whileTap={live && motionOK ? { scale: 0.9 } : undefined}
+                >
+                    <AnimatePresence initial={false}>
+                        {mark === 'done' && (
+                            <motion.span
+                                key="tick"
+                                initial={motionOK ? { scale: 0, rotate: -30 } : false}
+                                animate={{ scale: 1, rotate: 0 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={springs.strike}
+                                style={{ display: 'flex' }}
+                            >
+                                <Check size={11} strokeWidth={3.5} />
+                            </motion.span>
+                        )}
+                    </AnimatePresence>
+                </motion.button>
+
+                {/* Pointer-only twin of the N key. Hidden from assistive tech
+                    and out of the tab order so the cell announces once, as one
+                    control, with the shortcut in its label. */}
+                {live && (
+                    <button
+                        type="button"
+                        className="ledger-note"
+                        data-has={note ? 'true' : 'false'}
+                        tabIndex={-1}
+                        aria-hidden
+                        title={note ? note : 'Add a note for this day'}
+                        onClick={() => wrap.current && onNote(wrap.current)}
+                    />
+                )}
+            </span>
         </td>
     );
 }
@@ -201,6 +237,37 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
         onError: (e) => toast.error(errMsg(e, 'Could not save that day')),
         onSettled: () => setPending(null),
     });
+
+    /* ── Day notes ────────────────────────────────────────────────────
+       One popover for the whole grid, re-anchored to whichever cell asked
+       for it. Mounting an editor per cell would build a hundred of them to
+       use one. */
+    const [noteAt, setNoteAt] = useState<
+        { habitId: string; title: string; date: string; note: string | null } | null
+    >(null);
+    const noteAnchor = useRef<HTMLElement | null>(null);
+
+    const noteMut = useMutation({
+        mutationFn: ({ habitId, date, note }: { habitId: string; date: string; note: string }) =>
+            setHabitDayNote(habitId, date, note),
+        onSuccess: (_d, vars) => {
+            // Only the ledger carries notes, so nothing else needs waking.
+            qc.invalidateQueries({ queryKey: ['habit-grid'] });
+            toast.success(vars.note.trim() ? 'Note saved' : 'Note removed');
+            setNoteAt(null);
+        },
+        onError: (e) => toast.error(errMsg(e, 'Could not save that note')),
+    });
+
+    const openNote = (habit: any, date: string, i: number, anchor: HTMLElement) => {
+        noteAnchor.current = anchor;
+        setNoteAt({
+            habitId: habit.id,
+            title: habit.title,
+            date,
+            note: habit.notes?.[i] ?? null,
+        });
+    };
 
     const dates: string[] = data?.dates ?? [];
     const habits: any[] = data?.habits ?? [];
@@ -451,8 +518,10 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                                                             date={d}
                                                             title={h.title}
                                                             mark={h.marks[i] as Mark}
+                                                            note={h.notes?.[i] ?? null}
                                                             busy={pending === `${h.id}:${d}`}
                                                             onToggle={() => flip(h, d, h.marks[i] as Mark)}
+                                                            onNote={(anchor) => openNote(h, d, i, anchor)}
                                                         />
                                                     ))}
 
@@ -481,10 +550,30 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                             <span><i className="ledger-key ledger-key--missed" /> Missed</span>
                             <span><i className="ledger-key ledger-key--open" /> Today, still open</span>
                             <span><i className="ledger-key ledger-key--off" /> Not on the plan</span>
+                            <span><i className="ledger-key ledger-key--note" /> Has a note</span>
                         </div>
+
+                        {/* The one hint the grid cannot show by drawing it. */}
+                        <p className="ledger-hint">
+                            A challenge is rarely the same task twice. Hover any day to note what it
+                            took, or focus it and press <kbd>N</kbd>.
+                        </p>
                     </>
                 )}
             </div>
+
+            <DayNote
+                open={noteAt !== null}
+                onClose={() => setNoteAt(null)}
+                anchorRef={noteAnchor}
+                habitTitle={noteAt?.title ?? ''}
+                date={noteAt?.date ?? today}
+                note={noteAt?.note ?? null}
+                saving={noteMut.isPending}
+                onSave={(next) =>
+                    noteAt && noteMut.mutate({ habitId: noteAt.habitId, date: noteAt.date, note: next })
+                }
+            />
         </div>
     );
 }

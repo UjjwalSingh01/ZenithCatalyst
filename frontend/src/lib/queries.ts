@@ -120,6 +120,12 @@ export async function toggleHabit(habitId: string, date: string, completed: bool
     return res.data.data;
 }
 
+/** Write or clear what happened on one day. An empty string clears it. */
+export async function setHabitDayNote(habitId: string, date: string, note: string) {
+    const res = await api.put(`/habits/${habitId}/note`, { date, note });
+    return res.data.data;
+}
+
 export async function toggleSubHabit(subHabitId: string, date: string, completed: boolean) {
     const res = await api.post(`/habits/sub/${subHabitId}/toggle`, { date, completed });
     return res.data.data;

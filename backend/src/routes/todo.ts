@@ -3,7 +3,7 @@ import { authenticate, AuthRequest } from '../middlewares/auth.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import {
     createHabitSchema, updateHabitSchema, reorderHabitsSchema,
-    toggleHabitDateSchema, toggleSubHabitDateSchema,
+    toggleHabitDateSchema, toggleSubHabitDateSchema, habitDateNoteSchema,
 } from '../utils/schemas';
 import * as habitService from '../services/habit.service';
 
@@ -68,6 +68,15 @@ router.get('/day/:date', async (req: AuthRequest, res, next) => {
 router.post('/:id/toggle', validate(toggleHabitDateSchema), async (req: AuthRequest, res, next) => {
     try {
         const result = await habitService.toggleHabitDate(req.userId!, req.params.id, req.body.date, req.body.completed);
+        res.json({ success: true, data: result });
+    } catch (err) { next(err); }
+});
+
+// Write or clear the note on one day. PUT, not POST: the same body sent twice
+// leaves the day in the same state.
+router.put('/:id/note', validate(habitDateNoteSchema), async (req: AuthRequest, res, next) => {
+    try {
+        const result = await habitService.setHabitDateNote(req.userId!, req.params.id, req.body.date, req.body.note);
         res.json({ success: true, data: result });
     } catch (err) { next(err); }
 });
