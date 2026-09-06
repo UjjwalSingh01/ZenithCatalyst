@@ -1038,6 +1038,82 @@
   height: 19px;
 }
 
+/* ── Chart header & legend ──────────────────────────────────────────
+   The chart's own furniture. The standing total is the one direct label
+   on the figure, so it is sized to be read across the card. */
+.chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.35rem;
+}
+
+.chart-title {
+  font-size: 1.02rem;
+  margin-bottom: 0.15rem;
+}
+
+.chart-sub {
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+}
+
+.chart-standing {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+/* Proportional figures: equal-width digits make a standalone number look
+   loose at this size. */
+.chart-standing .tally {
+  font-size: 1.65rem;
+  line-height: 1;
+  color: var(--gold);
+  font-variant-numeric: normal;
+}
+
+.chart-standing-of {
+  font-size: 0.82rem;
+  color: var(--ash);
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.1rem;
+  margin-bottom: 0.9rem;
+  font-size: 0.75rem;
+  color: var(--ash);
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chart-key {
+  width: 15px;
+  height: 3px;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.chart-key--kept {
+  background: linear-gradient(90deg, var(--copper), var(--gold));
+}
+
+/* Dashed in the legend too, so the key matches the mark it stands for. */
+.chart-key--pace {
+  height: 0;
+  border-top: 2px dashed rgba(245, 235, 228, 0.42);
+  border-radius: 0;
+}
+
 .ledger-cell {
   text-align: center;
 }

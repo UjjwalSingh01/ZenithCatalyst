@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Flame } from 'lucide-react';
 import { fetchHabitsForDate, fetchAnalytics, toggleHabit, toggleSubHabit, fetchMotivationalQuote } from '../lib/queries';
 import { DayHabitListSkeleton } from '../components/Skeleton';
 import { fadeRise, staggerList, springs, heatOf, HEAT_LABEL, useMotionOK } from '../lib/motion';
+import { invalidateHabitData } from '../lib/invalidate';
 import Hearth from '../components/Hearth';
 import Coal from '../components/Coal';
 import HabitCheck from '../components/HabitCheck';
@@ -41,17 +42,17 @@ export default function Homepage() {
     const toggleMut = useMutation({
         mutationFn: ({ habitId, completed }: { habitId: string; completed: boolean }) =>
             toggleHabit(habitId, selectedDateStr, completed),
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['habits-day', selectedDateStr] });
-            qc.invalidateQueries({ queryKey: ['analytics'] });
-            qc.invalidateQueries({ queryKey: ['profile'] });
-        },
+        // Ticking a habit here also changes the habit list, the ledger and the
+        // charts. Naming only this page's caches is what left the others
+        // showing yesterday's answer until a reload.
+        onSuccess: () => invalidateHabitData(qc),
     });
 
     const subToggleMut = useMutation({
         mutationFn: ({ subId, completed }: { subId: string; completed: boolean }) =>
             toggleSubHabit(subId, selectedDateStr, completed),
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['habits-day', selectedDateStr] }),
+        // A sub-habit can complete its parent, so this reaches just as far.
+        onSuccess: () => invalidateHabitData(qc),
     });
 
     const calendarDays = useMemo(

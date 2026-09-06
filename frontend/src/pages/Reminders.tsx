@@ -9,6 +9,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { ReminderListSkeleton } from '../components/Skeleton';
 import { errMsg } from '../lib/errors';
+import { fetchHabits } from '../lib/queries';
 import { fadeRise, staggerList, springs, useMotionOK } from '../lib/motion';
 import Modal from '../components/Modal';
 import { SilentBell } from '../components/Art';
@@ -176,9 +177,12 @@ export default function Reminders() {
     const confirm = useConfirm();
 
     const { data: reminders = [], isLoading } = useQuery({ queryKey: ['reminders'], queryFn: fetchReminders });
+    /* Shares the habit list's cache entry, so it has to share its fetcher
+       too. Two different functions writing one key means whichever mounted
+       first decides what the other one sees. */
     const { data: habits = [] } = useQuery({
         queryKey: ['habits'],
-        queryFn: async () => (await api.get('/habits')).data.data,
+        queryFn: () => fetchHabits(),
         staleTime: 60_000,
     });
 

@@ -1,18 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
 import { Check, CircleSlash, GripVertical, Star } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+    ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { fetchHabitGrid, toggleHabit, reorderHabits, setHabitDayNote } from '../lib/queries';
 import DayNote from './DayNote';
 import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
 import { springs, staggerList, useMotionOK } from '../lib/motion';
+import { invalidateHabitData, invalidateHabitShape } from '../lib/invalidate';
 import { iso } from './RangeControl';
 import Counter from './Counter';
 import { Skeleton, StatCardsSkeleton } from './Skeleton';
 import { BlankLedger } from './Art';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * The ledger — every challenge against every day of the chosen window, laid
@@ -28,6 +31,10 @@ import { useEffect, useRef, useState } from 'react';
 /* Recharts paints into SVG outside our cascade, so it needs literal values. */
 const AXIS = { fill: 'rgba(245,235,228,0.38)', fontSize: 10, fontFamily: 'JetBrains Mono, monospace' };
 const GRID = 'rgba(245,235,228,0.07)';
+/* The pace line is chrome, not a competing series, so it wears the axis ink
+   rather than a heat colour. Giving it one of the temperatures would claim the
+   days you did not keep were themselves warm. */
+const PACE = 'rgba(245,235,228,0.34)';
 const TOOLTIP = {
     background: '#221816',
     border: '1px solid rgba(245,235,228,0.18)',
@@ -226,14 +233,10 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
     const toggleMut = useMutation({
         mutationFn: ({ habitId, date, completed }: { habitId: string; date: string; completed: boolean }) =>
             toggleHabit(habitId, date, completed),
-        onSuccess: () => {
-            // The stats, the curve and the row all read from the same query,
-            // so one invalidation moves every one of them together.
-            qc.invalidateQueries({ queryKey: ['habit-grid'] });
-            qc.invalidateQueries({ queryKey: ['habits'] });
-            qc.invalidateQueries({ queryKey: ['analytics'] });
-            qc.invalidateQueries({ queryKey: ['profile'] });
-        },
+        // The stats, the curve and the row all read from the same query, so
+        // this moves every one of them together, and Today and the charts
+        // with them.
+        onSuccess: () => invalidateHabitData(qc),
         onError: (e) => toast.error(errMsg(e, 'Could not save that day')),
         onSettled: () => setPending(null),
     });
@@ -274,6 +277,36 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
     const summary = data?.summary ?? {};
     const timeline = data?.timeline ?? [];
 
+    /* ── The trajectory ───────────────────────────────────────────────
+       The chart used to plot each day's completion rate, which swung
+       between 100% and 0% and read as noise: a challenge kept four days
+       out of five looked like a heart monitor. It also said nothing the
+       ledger below does not already say per day, and said it worse.
+
+       A challenge is a thing you are getting through, so the question is
+       "how far along am I, and how far behind?" — which is cumulative.
+       Both series are counted in days on one scale, because two y-axes
+       would invent a relationship between them. */
+    const progress = useMemo(() => {
+        let kept = 0;
+        let offered = 0;
+        return timeline.map((t: any) => {
+            kept += t.completed;
+            offered += t.total;
+            return {
+                date: t.date,
+                kept,
+                offered,
+                short: offered - kept,
+                dayRate: t.completionRate,
+                dayCompleted: t.completed,
+                dayTotal: t.total,
+            };
+        });
+    }, [timeline]);
+
+    const last = progress[progress.length - 1];
+
     const rate = summary.overallRate ?? 0;
     // Past a couple of weeks the columns have to give up their month names or
     // the grid stops fitting anywhere sensible.
@@ -296,10 +329,7 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
 
     const reorderMut = useMutation({
         mutationFn: reorderHabits,
-        onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['habit-grid'] });
-            qc.invalidateQueries({ queryKey: ['habits'] });
-        },
+        onSuccess: () => invalidateHabitShape(qc),
         onError: (e) => {
             toast.error(errMsg(e, 'Could not save the new order'));
             setRows(habits); // put it back the way the server has it
@@ -394,52 +424,115 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                         <span>No challenge was running in these days.</span>
                     </div>
                 ) : (
-                    <ResponsiveContainer width="100%" height={210}>
-                        <AreaChart data={timeline} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
-                            <defs>
-                                {/* The fill fades out downward so the area reads as heat rising. */}
-                                <linearGradient id="ledger-heat" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#f2b544" stopOpacity={0.34} />
-                                    <stop offset="100%" stopColor="#8f5334" stopOpacity={0.02} />
-                                </linearGradient>
-                                <linearGradient id="ledger-line" x1="0" y1="1" x2="0" y2="0">
-                                    <stop offset="0%" stopColor="#8f5334" />
-                                    <stop offset="55%" stopColor="#c97b4e" />
-                                    <stop offset="100%" stopColor="#f2b544" />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="2 4" stroke={GRID} vertical={false} />
-                            <XAxis
-                                dataKey="date"
-                                tickFormatter={(v) => format(parseISO(v), 'd MMM')}
-                                tick={AXIS}
-                                stroke={GRID}
-                                interval="preserveStartEnd"
-                                minTickGap={18}
-                            />
-                            <YAxis domain={[0, 100]} unit="%" tick={AXIS} stroke={GRID} />
-                            <Tooltip
-                                contentStyle={TOOLTIP}
-                                cursor={{ stroke: '#c97b4e', strokeWidth: 1, strokeDasharray: '3 3' }}
-                                labelFormatter={(v) => format(parseISO(String(v)), 'EEEE d MMM')}
-                                formatter={(v: any, _n, item: any) => [
-                                    `${v}% — ${item?.payload?.completed}/${item?.payload?.total} completed`,
-                                    'That day',
-                                ]}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="completionRate"
-                                stroke="url(#ledger-line)"
-                                strokeWidth={2.5}
-                                fill="url(#ledger-heat)"
-                                dot={false}
-                                activeDot={{ r: 4, fill: '#f2b544', stroke: '#16100f', strokeWidth: 2 }}
-                                isAnimationActive={motionOK}
-                                animationDuration={800}
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                    <>
+                        {/* The one direct label on the chart. A value beside
+                            every point would be unreadable, so the standing
+                            total is stated once, here, and the axis and the
+                            tooltip carry the rest. */}
+                        <div className="chart-head">
+                            <div>
+                                <h3 className="chart-title">Days kept</h3>
+                                <p className="chart-sub">
+                                    Every day each challenge was due, and whether you kept it.
+                                </p>
+                            </div>
+                            {last && (
+                                /* "of 60 days" would read as sixty calendar
+                                   days; it is four challenges across fifteen.
+                                   Saying "due" matches the legend key. */
+                                <p className="chart-standing">
+                                    <span className="tally">{last.kept}</span>
+                                    <span className="chart-standing-of">of {last.offered} due</span>
+                                </p>
+                            )}
+                        </div>
+
+                        {/* A legend, because there are two series and identity
+                            must never rest on colour alone. The marks differ in
+                            fill and dash as well as hue. */}
+                        <div className="chart-legend">
+                            <span><i className="chart-key chart-key--kept" /> Kept</span>
+                            <span><i className="chart-key chart-key--pace" /> Days due</span>
+                        </div>
+
+                        <ResponsiveContainer width="100%" height={230}>
+                            {/* The right margin is the width of half the last
+                                tick label. Any less and "6 Sep" is clipped by
+                                the edge of the card. */}
+                            <ComposedChart data={progress} margin={{ top: 8, right: 26, left: -24, bottom: 0 }}>
+                                <defs>
+                                    {/* The fill fades out downward so the area reads as heat rising. */}
+                                    <linearGradient id="ledger-heat" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#f2b544" stopOpacity={0.34} />
+                                        <stop offset="100%" stopColor="#8f5334" stopOpacity={0.02} />
+                                    </linearGradient>
+                                    <linearGradient id="ledger-line" x1="0" y1="1" x2="0" y2="0">
+                                        <stop offset="0%" stopColor="#8f5334" />
+                                        <stop offset="55%" stopColor="#c97b4e" />
+                                        <stop offset="100%" stopColor="#f2b544" />
+                                    </linearGradient>
+                                </defs>
+
+                                {/* Solid hairlines. A dashed grid reads as a
+                                    threshold when it is only a grid, and the
+                                    one dashed thing here should be the pace. */}
+                                <CartesianGrid stroke={GRID} vertical={false} />
+                                <XAxis
+                                    dataKey="date"
+                                    tickFormatter={(v) => format(parseISO(v), 'd MMM')}
+                                    tick={AXIS}
+                                    stroke={GRID}
+                                    interval="preserveStartEnd"
+                                    minTickGap={18}
+                                />
+                                {/* Days, so whole numbers only. */}
+                                <YAxis allowDecimals={false} tick={AXIS} stroke={GRID} width={46} />
+                                <Tooltip
+                                    contentStyle={TOOLTIP}
+                                    cursor={{ stroke: '#c97b4e', strokeWidth: 1 }}
+                                    labelFormatter={(v) => format(parseISO(String(v)), 'EEEE d MMM')}
+                                    /* Rows are named for the series they came
+                                       from, matching the legend. Both saying
+                                       "by this day" told you nothing about
+                                       which line you were reading. */
+                                    formatter={(v: any, _n, item: any) => {
+                                        const p = item?.payload;
+                                        if (_n === 'offered') {
+                                            return [`${v} so far · ${p?.short} not kept`, 'Days due'];
+                                        }
+                                        return [`${v} so far · ${p?.dayCompleted}/${p?.dayTotal} that day`, 'Kept'];
+                                    }}
+                                />
+
+                                {/* Everything that was due. The gap above the
+                                    filled area is the shortfall, which is the
+                                    fact the old chart never showed. */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="offered"
+                                    stroke={PACE}
+                                    strokeWidth={2}
+                                    strokeDasharray="5 4"
+                                    dot={false}
+                                    activeDot={{ r: 4, fill: PACE, stroke: '#16100f', strokeWidth: 2 }}
+                                    isAnimationActive={motionOK}
+                                    animationDuration={800}
+                                />
+
+                                <Area
+                                    type="monotone"
+                                    dataKey="kept"
+                                    stroke="url(#ledger-line)"
+                                    strokeWidth={2.5}
+                                    fill="url(#ledger-heat)"
+                                    dot={false}
+                                    activeDot={{ r: 4, fill: '#f2b544', stroke: '#16100f', strokeWidth: 2 }}
+                                    isAnimationActive={motionOK}
+                                    animationDuration={800}
+                                />
+                            </ComposedChart>
+                        </ResponsiveContainer>
+                    </>
                 )}
             </div>
 

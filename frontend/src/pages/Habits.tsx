@@ -11,6 +11,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { HabitListSkeleton } from '../components/Skeleton';
 import { errMsg } from '../lib/errors';
 import { springs, useMotionOK } from '../lib/motion';
+import { invalidateHabitData, invalidateHabitShape } from '../lib/invalidate';
 import Modal from '../components/Modal';
 import DateField from '../components/DateField';
 import { UnlitKindling } from '../components/Art';
@@ -549,8 +550,7 @@ export default function Habits() {
     const createMut = useMutation({
         mutationFn: createHabit,
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['habits'] });
-            qc.invalidateQueries({ queryKey: ['profile'] });
+            invalidateHabitData(qc);
             setCreating(false);
             toast.success('Habit created');
         },
@@ -559,8 +559,11 @@ export default function Habits() {
 
     const updateMut = useMutation({
         mutationFn: ({ id, data }: { id: string; data: any }) => updateHabit(id, data),
+        // This is where a habit is flagged as a challenge, so it has to reach
+        // the ledger. It did not, which is why a new challenge only appeared
+        // on the Challenges page after a reload.
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['habits'] });
+            invalidateHabitData(qc);
             setEditing(null);
             toast.success('Habit updated');
         },
@@ -570,7 +573,7 @@ export default function Habits() {
     const deleteMut = useMutation({
         mutationFn: deleteHabit,
         onSuccess: () => {
-            qc.invalidateQueries({ queryKey: ['habits'] });
+            invalidateHabitData(qc);
             toast.success('Habit deleted');
         },
         onError: (e) => toast.error(errMsg(e, 'Could not delete the habit')),
@@ -593,7 +596,8 @@ export default function Habits() {
 
     const reorderMut = useMutation({
         mutationFn: reorderHabits,
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['habits'] }),
+        // Ordering only, so progress and streaks are left alone.
+        onSuccess: () => invalidateHabitShape(qc),
         onError: (e) => {
             toast.error(errMsg(e, 'Could not save the new order'));
             setItems(habits); // put it back the way the server has it

@@ -15,6 +15,7 @@ import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
 import { TextLinesSkeleton, CardListSkeleton } from '../components/Skeleton';
 import { fadeRise, staggerList, springs, heatOf, HEAT_HEX, useMotionOK } from '../lib/motion';
+import { invalidateHabitData } from '../lib/invalidate';
 import Counter from '../components/Counter';
 import { CoachOrb, BlankLedger, QuestPennant } from '../components/Art';
 
@@ -144,7 +145,7 @@ export default function Coaching() {
             ...s.habitData, aiGenerated: true,
             startDate: new Date().toISOString().split('T')[0], priority: 2, category: 'Health',
         }),
-        onSuccess: () => { qc.invalidateQueries({ queryKey: ['habits'] }); toast.success('Added to your habits'); },
+        onSuccess: () => { invalidateHabitData(qc); toast.success('Added to your habits'); },
         onError: (err) => toast.error(errMsg(err, 'Could not add the habit')),
     });
 
