@@ -9,7 +9,7 @@ import { fetchHabitGrid, toggleHabit, reorderHabits, setHabitDayNote } from '../
 import DayNote from './DayNote';
 import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
-import { springs, staggerList, useMotionOK } from '../lib/motion';
+import { springs, useMotionOK } from '../lib/motion';
 import { invalidateHabitData, invalidateHabitShape } from '../lib/invalidate';
 import { iso } from './RangeControl';
 import Counter from './Counter';
@@ -45,9 +45,24 @@ const TOOLTIP = {
 
 type Mark = 'done' | 'missed' | 'open' | 'future' | 'off';
 
-/* Rows only fade in. A y-offset variant would fight the transform Reorder
-   puts on the same element to move it. */
-const ROW_IN = { hidden: { opacity: 0 }, show: { opacity: 1 } };
+/* Rows only fade in. A y-offset would fight the transform Reorder puts on the
+   same element to move it.
+
+   Each row drives its own entrance rather than inheriting a variant from the
+   group. The rows arrive a tick after the group does — `rows` starts empty and
+   is filled once the query resolves — so by the time they mount, the group's
+   own enter animation has already finished. A child that mounts late inherits
+   the resolved label, which was `hidden`, and stays at zero opacity: present in
+   the DOM, laid out, and completely invisible. That is the blank grid.
+
+   The stagger is a per-row delay for the same reason: `staggerChildren` only
+   works through the propagation this deliberately avoids. Capped so a long
+   ledger does not make the last row wait. */
+const rowEnter = (index: number) => ({
+    duration: 0.22,
+    ease: [0.16, 1, 0.3, 1] as const,
+    delay: Math.min(index, 14) * 0.03,
+});
 
 /** How each mark reads, both to the eye and to a screen reader. */
 const MARK_WORD: Record<Mark, string> = {
@@ -190,8 +205,10 @@ function Cell({ mark, date, title, note, onToggle, onNote, busy }: {
  * One draggable row. Only the grip drags — the row is full of buttons, and
  * every one of them would otherwise start a drag instead of marking a day.
  */
-function LedgerRow({ habit, onDragEnd, children }: {
+function LedgerRow({ habit, index, motionOK, onDragEnd, children }: {
     habit: any;
+    index: number;
+    motionOK: boolean;
     onDragEnd: () => void;
     children: (grab: (e: React.PointerEvent) => void) => React.ReactNode;
 }) {
@@ -202,7 +219,8 @@ function LedgerRow({ habit, onDragEnd, children }: {
         <Reorder.Item
             as="tr"
             value={habit}
-            variants={ROW_IN}
+            initial={motionOK ? { opacity: 0 } : false}
+            animate={{ opacity: 1, transition: rowEnter(index) }}
             dragListener={false}
             dragControls={controls}
             data-dragging={held}
@@ -456,10 +474,15 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                         </div>
 
                         <ResponsiveContainer width="100%" height={230}>
-                            {/* The right margin is the width of half the last
-                                tick label. Any less and "6 Sep" is clipped by
-                                the edge of the card. */}
-                            <ComposedChart data={progress} margin={{ top: 8, right: 26, left: -24, bottom: 0 }}>
+                            {/* Margins are set by the widest label on each
+                                side. Right is half of "6 Sep". Left is zero,
+                                not negative: this axis counts days, and with
+                                enough challenges running it reaches three
+                                digits — pulling the plot left clipped the
+                                leading digit, so 180 rendered as ".80". The
+                                old chart could afford the negative inset
+                                because it was a fixed 0-100 percentage. */}
+                            <ComposedChart data={progress} margin={{ top: 8, right: 26, left: 0, bottom: 0 }}>
                                 <defs>
                                     {/* The fill fades out downward so the area reads as heat rising. */}
                                     <linearGradient id="ledger-heat" x1="0" y1="0" x2="0" y2="1">
@@ -485,8 +508,10 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                                     interval="preserveStartEnd"
                                     minTickGap={18}
                                 />
-                                {/* Days, so whole numbers only. */}
-                                <YAxis allowDecimals={false} tick={AXIS} stroke={GRID} width={46} />
+                                {/* Days, so whole numbers only. Width fits a
+                                    four-digit tick, which is more challenge-
+                                    days than a window can hold. */}
+                                <YAxis allowDecimals={false} tick={AXIS} stroke={GRID} width={40} />
                                 <Tooltip
                                     contentStyle={TOOLTIP}
                                     cursor={{ stroke: '#c97b4e', strokeWidth: 1 }}
@@ -573,17 +598,23 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                                     </tr>
                                 </thead>
 
+                                {/* No variants on the group: the rows time
+                                    their own entrance, so nothing here has to
+                                    still be animating when they arrive. */}
                                 <Reorder.Group
                                     as="tbody"
                                     axis="y"
                                     values={rows}
                                     onReorder={setRows}
-                                    variants={motionOK ? staggerList : undefined}
-                                    initial={motionOK ? 'hidden' : false}
-                                    animate="show"
                                 >
-                                    {rows.map((h) => (
-                                        <LedgerRow key={h.id} habit={h} onDragEnd={saveOrder}>
+                                    {rows.map((h, rowIndex) => (
+                                        <LedgerRow
+                                            key={h.id}
+                                            habit={h}
+                                            index={rowIndex}
+                                            motionOK={motionOK}
+                                            onDragEnd={saveOrder}
+                                        >
                                             {(grab) => (
                                                 <>
                                                     <th scope="row" className="ledger-name">

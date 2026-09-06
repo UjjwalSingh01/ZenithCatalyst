@@ -114,6 +114,7 @@ export async function updateHabit(userId: string, habitId: string, data: {
     category?: string;
     tags?: string[];
     color?: string;
+    startDate?: string;
     endDate?: string;
     isArchived?: boolean;
     isChallenge?: boolean;
@@ -126,9 +127,16 @@ export async function updateHabit(userId: string, habitId: string, data: {
     // is already stored — clearing the end date of a challenge is as invalid as
     // promoting an open-ended habit to one.
     const willBeChallenge = data.isChallenge ?? habit.isChallenge;
+    const willStart = data.startDate ?? habit.startDate;
     const willEnd = data.endDate !== undefined ? data.endDate : habit.endDate;
     if (willBeChallenge && !willEnd) {
         throw new AppError(400, 'A challenge needs an end date');
+    }
+    // Checked against the stored row for the same reason: either date may be
+    // absent from the payload, so neither one alone says what the result is.
+    // Dates are ISO "YYYY-MM-DD", so a string compare is a date compare.
+    if (willEnd && willEnd < willStart) {
+        throw new AppError(400, 'A habit cannot end before it starts');
     }
 
     const { reminder, ...updateData } = data;

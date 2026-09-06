@@ -62,6 +62,10 @@ export const createHabitSchema = z.object({
     // just a habit, and the ledger would have nothing to measure against.
     message: 'A challenge needs an end date',
     path: ['endDate'],
+}).refine((d) => !d.endDate || d.endDate >= d.startDate, {
+    // The form already refuses this, but the form is not the only way in.
+    message: 'A habit cannot end before it starts',
+    path: ['endDate'],
 });
 
 export const updateHabitSchema = z.object({
@@ -71,6 +75,12 @@ export const updateHabitSchema = z.object({
     category: z.enum(['Health', 'Work', 'Learning', 'Mindfulness', 'Lifestyle', 'Other']).optional(),
     tags: z.array(z.string()).optional(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+    // Was missing, which is not the same as being rejected: Zod strips keys it
+    // does not declare, and the middleware assigns the parsed result back over
+    // req.body. So an edited start date was quietly dropped on the way in and
+    // the write succeeded without it. Ordering against the stored end date is
+    // enforced in `updateHabit`, which can see the row.
+    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
     isArchived: z.boolean().optional(),
     // The end-date rule can't be checked here — the habit may already have one

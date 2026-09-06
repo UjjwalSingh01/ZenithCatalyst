@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import { useQuery } from '@tanstack/react-query';
 import {
     Home, CheckSquare, Flag, BarChart2, Bot, Bell, User,
@@ -160,11 +160,23 @@ export default function AppLayout() {
             </motion.aside>
 
             <main className="main" data-collapsed={collapsed}>
-                <AnimatePresence mode="wait">
-                    <PageTransition key={location.pathname}>
-                        <Outlet />
-                    </PageTransition>
-                </AnimatePresence>
+                {/* No AnimatePresence around the route.
+                    It was `mode="wait"`, which holds the next page back until
+                    the last one reports that it finished exiting. On the
+                    Challenges route that report never arrived — the exit
+                    animation ran to zero and then stalled — so the incoming
+                    page mounted at its initial opacity and stayed invisible.
+                    A fully rendered, completely transparent page: the blank
+                    screen that a second click cleared by building a new one.
+                    Dropping `mode="wait"` only moved the fault, leaving the
+                    dead page in the DOM at opacity 0 forever.
+
+                    The keyed remount still gives every route its entrance.
+                    Only the exit fade is gone, and an exit nobody can see is
+                    a poor trade for a page that sometimes does not appear. */}
+                <PageTransition key={location.pathname}>
+                    <Outlet />
+                </PageTransition>
             </main>
 
             {/* Under 900px the sidebar is gone and this is the whole nav. */}
