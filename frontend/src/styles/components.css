@@ -240,7 +240,6 @@
 
 /* ── Forms ──────────────────────────────────────────────────────── */
 .input,
-.select,
 .textarea {
   width: 100%;
   padding: 0.65rem 0.9rem;
@@ -255,7 +254,6 @@
 }
 
 .input:focus,
-.select:focus,
 .textarea:focus {
   border-color: var(--copper);
   box-shadow: 0 0 0 3px rgba(201, 123, 78, 0.16);
@@ -266,20 +264,182 @@
   color: var(--ash);
 }
 
-.select {
-  appearance: none;
+/* ── Dropdown ───────────────────────────────────────────────────────
+   components/Select.tsx. The trigger takes the exact metrics of .input,
+   so a dropdown and a text field side by side line up to the pixel. The
+   panel shares the popover surface, so every popup in the app — this,
+   the date picker, the range picker — reads as one family. */
+.dd-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem 0.65rem 0.9rem;
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  line-height: 1.35;
+  text-align: left;
   cursor: pointer;
-  background-image: linear-gradient(45deg, transparent 50%, var(--copper) 50%),
-    linear-gradient(135deg, var(--copper) 50%, transparent 50%);
-  background-position: calc(100% - 18px) 52%, calc(100% - 13px) 52%;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
-  padding-right: 2.25rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
-.select option {
+.dd-trigger:hover:not(:disabled) {
+  border-color: var(--line-bright);
+}
+
+/* Focus and open read the same, because both mean "this is the field you
+   are in". The ring is the one text inputs use. */
+.dd-trigger:focus-visible,
+.dd-trigger[data-open='true'] {
+  outline: none;
+  border-color: var(--copper);
+  box-shadow: 0 0 0 3px rgba(201, 123, 78, 0.16);
+}
+
+.dd-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dd-value {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dd-placeholder {
+  color: var(--ash);
+}
+
+.dd-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.dd-hint {
+  margin-left: auto;
+  flex-shrink: 0;
+  max-width: 50%;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--ash);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Turns over as the list opens, which says which way it went. */
+.dd-chevron {
+  flex-shrink: 0;
+  color: var(--copper);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dd-trigger[data-open='true'] .dd-chevron {
+  transform: rotate(180deg);
+}
+
+/* Above the modal (60) and the popovers (70): a dropdown is opened from
+   inside both, and has to land on top of whichever it came from. */
+.dd-panel {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
+  border: 1px solid var(--line-bright);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  transform-origin: top center;
+}
+
+.dd-panel[data-above='true'] {
+  transform-origin: bottom center;
+}
+
+.dd-search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--ash);
+  flex-shrink: 0;
+}
+
+.dd-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.86rem;
+}
+
+.dd-search input::placeholder {
+  color: var(--ash);
+}
+
+.dd-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.3rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  outline: none;
+}
+
+.dd-option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 7px;
+  font-size: 0.87rem;
+  color: var(--ink-dim);
+  cursor: pointer;
+  user-select: none;
+  scroll-margin: 0.3rem;
+}
+
+.dd-label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The highlight follows the pointer and the arrow keys alike, so there is
+   only ever one "this is where Enter will land". */
+.dd-option[data-active='true'] {
+  background: rgba(201, 123, 78, 0.12);
+  color: var(--ink);
+}
+
+.dd-option[aria-selected='true'] {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.dd-check {
+  flex-shrink: 0;
+  color: var(--gold);
+  opacity: 0;
+}
+
+.dd-option[aria-selected='true'] .dd-check {
+  opacity: 1;
+}
+
+.dd-empty {
+  padding: 0.85rem 0.9rem;
+  font-size: 0.84rem;
+  color: var(--ash);
 }
 
 .textarea {
@@ -400,7 +560,6 @@
 }
 
 .input:disabled,
-.select:disabled,
 .textarea:disabled {
   opacity: 0.55;
   cursor: not-allowed;

@@ -12,6 +12,7 @@ import { errMsg } from '../lib/errors';
 import { springs, useMotionOK } from '../lib/motion';
 import { invalidateHabitData, invalidateHabitShape } from '../lib/invalidate';
 import { countDueDays, describeDays } from '../lib/schedule';
+import { describePointScale } from '../lib/priority';
 import { iso } from './RangeControl';
 import Counter from './Counter';
 import { Skeleton, StatCardsSkeleton } from './Skeleton';
@@ -485,7 +486,7 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                             <div>
                                 <h3 className="chart-title">Points earned</h3>
                                 <p className="chart-sub">
-                                    A kept day is worth 3, 2 or 1 point by the habit's priority.
+                                    A kept day is worth {describePointScale()} by the habit's priority.
                                 </p>
                             </div>
                             <p className="chart-standing">

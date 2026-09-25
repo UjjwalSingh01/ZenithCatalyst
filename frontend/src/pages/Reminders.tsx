@@ -12,7 +12,9 @@ import { errMsg } from '../lib/errors';
 import { fetchHabits } from '../lib/queries';
 import { fadeRise, staggerList, springs, useMotionOK } from '../lib/motion';
 import Modal from '../components/Modal';
+import Select, { type SelectOption } from '../components/Select';
 import { SilentBell } from '../components/Art';
+import { browserTimeZone, timeZoneOptions } from '../lib/timezones';
 
 // ─── API ────────────────────────────────────────────────────────────
 const fetchReminders = async () => (await api.get('/scheduler')).data.data;
@@ -30,7 +32,6 @@ const PRESETS = [
     { label: 'Custom', value: 'custom' },
 ];
 
-const TIMEZONES = ['UTC', 'America/New_York', 'America/Los_Angeles', 'Europe/London', 'Europe/Berlin', 'Asia/Kolkata', 'Asia/Tokyo', 'Australia/Sydney'];
 
 const STATUS = {
     active: { cls: 'badge--lit', label: 'Active' },
@@ -47,10 +48,20 @@ function ReminderForm({ habits, onClose, onSave, initial }: {
         email: initial?.email || '',
         message: initial?.message || '',
         schedule: initial?.schedule || '0 8 * * *',
-        timezone: initial?.timezone || 'UTC',
+        // The zone you are in, not UTC: a new "daily 8am" should mean your 8am.
+        // An existing reminder keeps the zone it was saved with.
+        timezone: initial?.timezone || browserTimeZone(),
         isRecurring: initial?.isRecurring ?? true,
         habitId: initial?.habitId || '',
     });
+
+    // Built once per open form; formatting hundreds of offsets is not free,
+    // and the saved zone is folded in so it can never be missing from the list.
+    const [zoneOptions] = useState(() => timeZoneOptions(initial?.timezone));
+    const habitOptions: SelectOption<string>[] = [
+        { value: '', label: 'None' },
+        ...habits.map((h: any) => ({ value: h.id, label: h.title, hint: h.category ?? undefined })),
+    ];
     const [preset, setPreset] = useState(() => {
         if (!initial?.schedule) return '0 8 * * *';
         return PRESETS.some((p) => p.value === initial.schedule) ? initial.schedule : 'custom';
@@ -111,11 +122,17 @@ function ReminderForm({ habits, onClose, onSave, initial }: {
 
             {habits.length > 0 && (
                 <div>
-                    <label className="label">Attach to a habit</label>
-                    <select className="select" value={form.habitId} onChange={set('habitId')}>
-                        <option value="">None</option>
-                        {habits.map((h: any) => <option key={h.id} value={h.id}>{h.title}</option>)}
-                    </select>
+                    <label className="label" id="reminder-habit-label" htmlFor="reminder-habit">Attach to a habit</label>
+                    {/* Search appears once the list is long enough to need it. */}
+                    <Select
+                        id="reminder-habit"
+                        labelId="reminder-habit-label"
+                        value={form.habitId}
+                        onChange={(v) => setForm((f) => ({ ...f, habitId: v }))}
+                        options={habitOptions}
+                        searchable={habitOptions.length > 8}
+                        searchPlaceholder="Find a habit"
+                    />
                 </div>
             )}
 
@@ -151,10 +168,16 @@ function ReminderForm({ habits, onClose, onSave, initial }: {
             </div>
 
             <div>
-                <label className="label"><Globe size={11} /> Timezone</label>
-                <select className="select" value={form.timezone} onChange={set('timezone')}>
-                    {TIMEZONES.map((tz) => <option key={tz}>{tz}</option>)}
-                </select>
+                <label className="label" id="reminder-tz-label" htmlFor="reminder-tz"><Globe size={11} /> Timezone</label>
+                <Select
+                    id="reminder-tz"
+                    labelId="reminder-tz-label"
+                    value={form.timezone}
+                    onChange={(v) => setForm((f) => ({ ...f, timezone: v }))}
+                    options={zoneOptions}
+                    searchable
+                    searchPlaceholder="City, region or offset"
+                />
             </div>
 
             <div className="modal-actions" style={{ marginTop: 0 }}>

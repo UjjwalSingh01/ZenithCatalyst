@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
 import {
-    ChevronsUp, ChevronUp, ChevronRight, ChevronDown, Sparkles, ListTodo,
+    Sparkles, ListTodo,
     Edit2, Trash2, Bell, BellOff, Clock, Plus, Flag, GripVertical, CalendarDays,
 } from 'lucide-react';
+import { PRIORITY, PRIORITY_KEYS, DEFAULT_PRIORITY, pointsLabel, type PriorityKey } from '../lib/priority';
+import Select, { type SelectOption } from '../components/Select';
 import { fetchHabits, createHabit, deleteHabit, updateHabit, reorderHabits, parseHabitFromText } from '../lib/queries';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
@@ -39,6 +41,23 @@ const DURATIONS = [
     { value: 'until_end', label: 'Until the habit ends' },
 ];
 
+/* Built once from the tables above, not inside render. Each priority carries
+   its own icon and colour — the same ones its badge wears on the card — and
+   its score, so the choice and its consequence are read together. */
+const PRIORITY_OPTIONS: SelectOption<PriorityKey>[] = PRIORITY_KEYS.map((key) => {
+    const p = PRIORITY[key];
+    const Icon = p.icon;
+    return {
+        value: key,
+        label: p.label,
+        hint: pointsLabel(p.points),
+        icon: <Icon size={15} strokeWidth={2.2} color={p.color} />,
+    };
+});
+
+const CATEGORY_OPTIONS: SelectOption<string>[] = CATEGORIES.map((c) => ({ value: c, label: c }));
+const DURATION_OPTIONS: SelectOption<string>[] = DURATIONS.map((d) => ({ value: d.value, label: d.label }));
+
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** How long a challenge runs when you flag one without saying otherwise. */
@@ -52,27 +71,6 @@ const inDays = (n: number) => {
     d.setDate(d.getDate() + n);
     return isoLocal(d);
 };
-
-/**
- * Ascending is more important, which is also the order the list sorts by.
- *
- * `points` is what a kept day of this habit is worth, and it has to match
- * backend/src/utils/points.ts — the server scores the chart, this only says so
- * where the choice is made. Medium and Low share a score on purpose: below
- * Medium there is nothing left to take away without a kept day being worth
- * nothing at all.
- */
-const PRIORITY = {
-    1: { icon: ChevronsUp, label: 'Very high', color: 'var(--gold)', points: 3 },
-    2: { icon: ChevronUp, label: 'High', color: 'var(--copper-lit)', points: 2 },
-    3: { icon: ChevronRight, label: 'Medium', color: 'var(--copper)', points: 1 },
-    4: { icon: ChevronDown, label: 'Low', color: 'var(--cold)', points: 1 },
-} as const;
-
-type PriorityKey = keyof typeof PRIORITY;
-
-/** Medium, matching the column default and the create schema. */
-const DEFAULT_PRIORITY = 3;
 
 // ─── Habit card ─────────────────────────────────────────────────────
 function HabitCard({ habit, onEdit, onDelete, onToggleChallenge, onGrab, onGripKey }: {
@@ -288,10 +286,14 @@ function ReminderSection({ reminder, onChange }: { reminder: ReminderState; onCh
                             </div>
 
                             <div>
-                                <label className="label">Keep sending for</label>
-                                <select className="select" value={reminder.duration} onChange={(e) => set('duration', e.target.value)}>
-                                    {DURATIONS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                                </select>
+                                <label className="label" id="reminder-duration-label" htmlFor="reminder-duration">Keep sending for</label>
+                                <Select
+                                    id="reminder-duration"
+                                    labelId="reminder-duration-label"
+                                    value={reminder.duration}
+                                    onChange={(v) => set('duration', v)}
+                                    options={DURATION_OPTIONS}
+                                />
                             </div>
 
                             <div>
@@ -461,26 +463,29 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
 
             <div className="grid-2" style={{ gap: '0.75rem' }}>
                 <div>
-                    <label className="label">Priority</label>
-                    {/* The score is on the option itself: priority only means
+                    {/* Labels are tied to their field now, so a screen reader
+                        announces "Priority" rather than an unnamed control. */}
+                    <label className="label" id="habit-priority-label" htmlFor="habit-priority">Priority</label>
+                    {/* The score sits beside each level: priority only means
                         anything here because of what it is worth, and hiding
                         that makes the choice look cosmetic. */}
-                    <select className="select" value={form.priority} onChange={set('priority')}>
-                        {(Object.keys(PRIORITY) as unknown as PriorityKey[]).map((key) => {
-                            const p = PRIORITY[key];
-                            return (
-                                <option key={key} value={key}>
-                                    {p.label} · {p.points} {p.points === 1 ? 'point' : 'points'}
-                                </option>
-                            );
-                        })}
-                    </select>
+                    <Select
+                        id="habit-priority"
+                        labelId="habit-priority-label"
+                        value={Number(form.priority) as PriorityKey}
+                        onChange={(v) => setForm((f) => ({ ...f, priority: v }))}
+                        options={PRIORITY_OPTIONS}
+                    />
                 </div>
                 <div>
-                    <label className="label">Category</label>
-                    <select className="select" value={form.category} onChange={set('category')}>
-                        {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                    </select>
+                    <label className="label" id="habit-category-label" htmlFor="habit-category">Category</label>
+                    <Select
+                        id="habit-category"
+                        labelId="habit-category-label"
+                        value={form.category}
+                        onChange={(v) => setForm((f) => ({ ...f, category: v }))}
+                        options={CATEGORY_OPTIONS}
+                    />
                 </div>
             </div>
 
