@@ -1081,13 +1081,42 @@
   color: var(--ash);
 }
 
+/* Legend and chart-style switch share a row: both are about how to read the
+   figure, not about what is in it. */
+.chart-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-bottom: 0.9rem;
+}
+
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem 1.1rem;
-  margin-bottom: 0.9rem;
   font-size: 0.75rem;
   color: var(--ash);
+}
+
+/* The switch is a control beside a figure, not a page-level tab strip. */
+.seg--sm {
+  flex-shrink: 0;
+  padding: 2px;
+}
+
+.seg--sm .seg-item {
+  padding: 0.28rem 0.7rem;
+  font-size: 0.72rem;
+}
+
+/* A bar key is a block, because the mark it stands for is one. */
+.chart-key--bar {
+  width: 11px;
+  height: 12px;
+  border-radius: 3px 3px 1px 1px;
+  background: linear-gradient(180deg, var(--gold), var(--copper));
 }
 
 .chart-legend span {

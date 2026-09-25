@@ -179,8 +179,9 @@ export async function parseNaturalLanguageHabit(text: string) {
     const today = new Date().toISOString().split('T')[0];
     const raw = await callGemini(
         `You are a habit parser. Parse natural language into a structured habit. Return ONLY valid JSON:
-{"title":"habit name","description":"optional","subHabits":["step 1","step 2"],"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD or null","priority":1,"category":"Health|Work|Learning|Mindfulness|Lifestyle|Other","color":"#hex"}
-Today is ${today}. Set endDate null if ongoing. Choose a vibrant color hex. Infer sub-habits only if implied.`,
+{"title":"habit name","description":"optional","subHabits":["step 1","step 2"],"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD or null","priority":3,"category":"Health|Work|Learning|Mindfulness|Lifestyle|Other","color":"#hex"}
+Today is ${today}. Set endDate null if ongoing. Choose a vibrant color hex. Infer sub-habits only if implied.
+priority is 1=very high, 2=high, 3=medium, 4=low. Use 3 unless the text says how much it matters; reserve 1 for language like "critical" or "top priority".`,
         text,
         0.3
     );

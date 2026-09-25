@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma';
+import { pointsFor } from '../utils/points';
 
 export async function getAnalytics(userId: string, range: string) {
     const days = rangeToDays(range);
@@ -145,8 +146,12 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
         }),
     ]);
 
-    // Per-day totals, accumulated as we walk each habit's row.
-    const dayTally = new Map(dates.map((d) => [d, { completed: 0, total: 0 }]));
+    // Per-day totals, accumulated as we walk each habit's row. `points` is what
+    // was earned; `pointsPossible` is what was on the table, so the gap between
+    // them is what a day cost.
+    const dayTally = new Map(
+        dates.map((d) => [d, { completed: 0, total: 0, points: 0, pointsPossible: 0 }]),
+    );
 
     const rows = habits.map((h) => {
         const byDate = new Map(h.dates.map((d) => [d.date, d.completed]));
@@ -159,27 +164,35 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
         let missed = 0;
         let elapsed = 0; // on-plan days that have already had their chance
 
+        // What one kept day of this habit is worth. Same for every day of it,
+        // so it is read once per row rather than per cell.
+        const worth = pointsFor(h.priority);
+
         const marks: GridMark[] = dates.map((date) => {
             const onPlan = date >= h.startDate && (!h.endDate || date <= h.endDate);
             if (!onPlan) return 'off';
+            const t = dayTally.get(date)!;
             if (byDate.get(date)) {
                 done++;
                 elapsed++;
-                const t = dayTally.get(date)!;
                 t.completed++; t.total++;
+                t.points += worth; t.pointsPossible += worth;
                 return 'done';
             }
             if (date > today) return 'future';
             if (date === today) {
                 // Today counts toward the day's denominator so the chart reads
                 // as "so far today" and climbs — but never toward `missed`,
-                // which would score a day still in progress as a failure.
-                dayTally.get(date)!.total++;
+                // which would score a day still in progress as a failure. Its
+                // points are on the table without having been won yet.
+                t.total++;
+                t.pointsPossible += worth;
                 return 'open';
             }
             missed++;
             elapsed++;
-            dayTally.get(date)!.total++;
+            t.total++;
+            t.pointsPossible += worth;
             return 'missed';
         });
 
@@ -208,12 +221,18 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
             date,
             completed: t.completed,
             total: t.total,
+            points: t.points,
+            pointsPossible: t.pointsPossible,
             completionRate: t.total > 0 ? Math.round((t.completed / t.total) * 100) : 0,
         };
     });
 
     const completed = rows.reduce((s, r) => s + r.completed, 0);
     const missed = rows.reduce((s, r) => s + r.missed, 0);
+    // Summed from the day tallies rather than the rows, so the header figure
+    // and the chart can never disagree about the same window.
+    const points = timeline.reduce((s, t) => s + t.points, 0);
+    const pointsPossible = timeline.reduce((s, t) => s + t.pointsPossible, 0);
 
     return {
         from, to, dates, habits: rows, timeline,
@@ -221,6 +240,8 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
             overallRate: completed + missed > 0 ? Math.round((completed / (completed + missed)) * 100) : 0,
             completed,
             missed,
+            points,
+            pointsPossible,
             totalHabits: rows.length,
             currentStreak: user?.currentStreak ?? 0,
             longestStreak: user?.longestStreak ?? 0,

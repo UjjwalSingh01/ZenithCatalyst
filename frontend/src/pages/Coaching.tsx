@@ -143,7 +143,8 @@ export default function Coaching() {
     const addHabitMut = useMutation({
         mutationFn: (s: any) => createHabit({
             ...s.habitData, aiGenerated: true,
-            startDate: new Date().toISOString().split('T')[0], priority: 2, category: 'Health',
+            // 3 is Medium on the four-level scale; it was 2 when Medium was 2.
+            startDate: new Date().toISOString().split('T')[0], priority: 3, category: 'Health',
         }),
         onSuccess: () => { invalidateHabitData(qc); toast.success('Added to your habits'); },
         onError: (err) => toast.error(errMsg(err, 'Could not add the habit')),

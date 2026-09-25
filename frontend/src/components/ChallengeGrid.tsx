@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
 import { Check, CircleSlash, GripVertical, Star } from 'lucide-react';
 import {
-    ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    ComposedChart, Area, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { fetchHabitGrid, toggleHabit, reorderHabits, setHabitDayNote } from '../lib/queries';
@@ -35,6 +35,36 @@ const GRID = 'rgba(245,235,228,0.07)';
    rather than a heat colour. Giving it one of the temperatures would claim the
    days you did not keep were themselves warm. */
 const PACE = 'rgba(245,235,228,0.34)';
+
+/* How the earned series can be drawn. The ceiling is always a dashed line, so
+   only this one changes. */
+type ChartKind = 'bar' | 'area' | 'line';
+
+const CHART_KINDS: { id: ChartKind; label: string }[] = [
+    { id: 'bar', label: 'Bars' },
+    { id: 'area', label: 'Area' },
+    { id: 'line', label: 'Points' },
+];
+
+const KIND_STORE = 'ledger-chart-kind';
+
+/** Remembered per browser: it is a viewing preference, not account state. */
+function useChartKind() {
+    const [kind, setKind] = useState<ChartKind>(() => {
+        try {
+            const saved = localStorage.getItem(KIND_STORE);
+            if (saved === 'bar' || saved === 'area' || saved === 'line') return saved;
+        } catch { /* private mode, or storage is blocked; the default is fine */ }
+        return 'area';
+    });
+
+    const choose = (next: ChartKind) => {
+        setKind(next);
+        try { localStorage.setItem(KIND_STORE, next); } catch { /* not worth failing over */ }
+    };
+
+    return [kind, choose] as const;
+}
 const TOOLTIP = {
     background: '#221816',
     border: '1px solid rgba(245,235,228,0.18)',
@@ -241,6 +271,7 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
     const today = iso(new Date());
 
     const [pending, setPending] = useState<string | null>(null);
+    const [kind, setKind] = useChartKind();
 
     const { data, isLoading } = useQuery({
         queryKey: ['habit-grid', from, to],
@@ -305,25 +336,17 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
        "how far along am I, and how far behind?" — which is cumulative.
        Both series are counted in days on one scale, because two y-axes
        would invent a relationship between them. */
-    const progress = useMemo(() => {
-        let kept = 0;
-        let offered = 0;
-        return timeline.map((t: any) => {
-            kept += t.completed;
-            offered += t.total;
-            return {
-                date: t.date,
-                kept,
-                offered,
-                short: offered - kept,
-                dayRate: t.completionRate,
-                dayCompleted: t.completed,
-                dayTotal: t.total,
-            };
-        });
-    }, [timeline]);
-
-    const last = progress[progress.length - 1];
+    const progress = useMemo(
+        () => timeline.map((t: any) => ({
+            date: t.date,
+            points: t.points ?? 0,
+            possible: t.pointsPossible ?? 0,
+            short: (t.pointsPossible ?? 0) - (t.points ?? 0),
+            dayCompleted: t.completed,
+            dayTotal: t.total,
+        })),
+        [timeline],
+    );
 
     const rate = summary.overallRate ?? 0;
     // Past a couple of weeks the columns have to give up their month names or
@@ -449,40 +472,69 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                             tooltip carry the rest. */}
                         <div className="chart-head">
                             <div>
-                                <h3 className="chart-title">Days kept</h3>
+                                <h3 className="chart-title">Points earned</h3>
                                 <p className="chart-sub">
-                                    Every day each challenge was due, and whether you kept it.
+                                    A kept day is worth 3, 2 or 1 point by the habit's priority.
                                 </p>
                             </div>
-                            {last && (
-                                /* "of 60 days" would read as sixty calendar
-                                   days; it is four challenges across fifteen.
-                                   Saying "due" matches the legend key. */
-                                <p className="chart-standing">
-                                    <span className="tally">{last.kept}</span>
-                                    <span className="chart-standing-of">of {last.offered} due</span>
-                                </p>
-                            )}
+                            <p className="chart-standing">
+                                <span className="tally">{summary.points ?? 0}</span>
+                                <span className="chart-standing-of">
+                                    of {summary.pointsPossible ?? 0} available
+                                </span>
+                            </p>
                         </div>
 
-                        {/* A legend, because there are two series and identity
-                            must never rest on colour alone. The marks differ in
-                            fill and dash as well as hue. */}
-                        <div className="chart-legend">
-                            <span><i className="chart-key chart-key--kept" /> Kept</span>
-                            <span><i className="chart-key chart-key--pace" /> Days due</span>
+                        <div className="chart-controls">
+                            {/* A legend, because there are two series and
+                                identity must never rest on colour alone. The
+                                marks differ in fill and dash as well as hue. */}
+                            <div className="chart-legend">
+                                <span><i className={`chart-key chart-key--${kind === 'bar' ? 'bar' : 'kept'}`} /> Earned</span>
+                                <span><i className="chart-key chart-key--pace" /> Available</span>
+                            </div>
+
+                            {/* Same segmented control the rest of the app uses
+                                for switching a view. It changes how one series
+                                is drawn, never which data is shown, so it sits
+                                with the legend rather than above the page. */}
+                            <div className="seg seg--sm" role="tablist" aria-label="Chart style">
+                                {CHART_KINDS.map(({ id, label }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        role="tab"
+                                        className="seg-item"
+                                        aria-selected={kind === id}
+                                        onClick={() => setKind(id)}
+                                    >
+                                        {kind === id && (
+                                            <motion.span
+                                                className="seg-marker"
+                                                layoutId={motionOK ? 'chart-kind' : undefined}
+                                                transition={springs.settle}
+                                            />
+                                        )}
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <ResponsiveContainer width="100%" height={230}>
                             {/* Margins are set by the widest label on each
                                 side. Right is half of "6 Sep". Left is zero,
-                                not negative: this axis counts days, and with
+                                not negative: this axis counts points, and with
                                 enough challenges running it reaches three
                                 digits — pulling the plot left clipped the
                                 leading digit, so 180 rendered as ".80". The
                                 old chart could afford the negative inset
                                 because it was a fixed 0-100 percentage. */}
-                            <ComposedChart data={progress} margin={{ top: 8, right: 26, left: 0, bottom: 0 }}>
+                            <ComposedChart
+                                data={progress}
+                                margin={{ top: 8, right: 26, left: 0, bottom: 0 }}
+                                barCategoryGap="22%"
+                            >
                                 <defs>
                                     {/* The fill fades out downward so the area reads as heat rising. */}
                                     <linearGradient id="ledger-heat" x1="0" y1="0" x2="0" y2="1">
@@ -493,6 +545,13 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                                         <stop offset="0%" stopColor="#8f5334" />
                                         <stop offset="55%" stopColor="#c97b4e" />
                                         <stop offset="100%" stopColor="#f2b544" />
+                                    </linearGradient>
+                                    {/* Bars carry their own fill: a bar is a
+                                        solid mark, and the area's fade to
+                                        nothing would leave them bottomless. */}
+                                    <linearGradient id="ledger-bar" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#f2b544" stopOpacity={0.95} />
+                                        <stop offset="100%" stopColor="#c97b4e" stopOpacity={0.55} />
                                     </linearGradient>
                                 </defs>
 
@@ -522,19 +581,20 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                                        which line you were reading. */
                                     formatter={(v: any, _n, item: any) => {
                                         const p = item?.payload;
-                                        if (_n === 'offered') {
-                                            return [`${v} so far · ${p?.short} not kept`, 'Days due'];
+                                        if (_n === 'possible') {
+                                            return [`${v} available · ${p?.short} not earned`, 'Available'];
                                         }
-                                        return [`${v} so far · ${p?.dayCompleted}/${p?.dayTotal} that day`, 'Kept'];
+                                        return [`${v} earned · ${p?.dayCompleted}/${p?.dayTotal} kept`, 'Earned'];
                                     }}
                                 />
 
-                                {/* Everything that was due. The gap above the
-                                    filled area is the shortfall, which is the
-                                    fact the old chart never showed. */}
+                                {/* The ceiling: everything the day had on the
+                                    table. Drawn first so the earned mark sits
+                                    in front of it, and the space between the
+                                    two is what the day cost. */}
                                 <Line
                                     type="monotone"
-                                    dataKey="offered"
+                                    dataKey="possible"
                                     stroke={PACE}
                                     strokeWidth={2}
                                     strokeDasharray="5 4"
@@ -544,17 +604,53 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                                     animationDuration={800}
                                 />
 
-                                <Area
-                                    type="monotone"
-                                    dataKey="kept"
-                                    stroke="url(#ledger-line)"
-                                    strokeWidth={2.5}
-                                    fill="url(#ledger-heat)"
-                                    dot={false}
-                                    activeDot={{ r: 4, fill: '#f2b544', stroke: '#16100f', strokeWidth: 2 }}
-                                    isAnimationActive={motionOK}
-                                    animationDuration={800}
-                                />
+                                {/* One series, three ways of drawing it. Only
+                                    the mark changes; the data behind every
+                                    option is the same. */}
+                                {kind === 'bar' && (
+                                    <Bar
+                                        dataKey="points"
+                                        fill="url(#ledger-bar)"
+                                        /* Rounded at the free end, square where
+                                           it meets the baseline it is measured
+                                           from. */
+                                        radius={[4, 4, 0, 0]}
+                                        maxBarSize={34}
+                                        isAnimationActive={motionOK}
+                                        animationDuration={700}
+                                    />
+                                )}
+
+                                {kind === 'area' && (
+                                    <Area
+                                        type="monotone"
+                                        dataKey="points"
+                                        stroke="url(#ledger-line)"
+                                        strokeWidth={2.5}
+                                        fill="url(#ledger-heat)"
+                                        dot={false}
+                                        activeDot={{ r: 4, fill: '#f2b544', stroke: '#16100f', strokeWidth: 2 }}
+                                        isAnimationActive={motionOK}
+                                        animationDuration={800}
+                                    />
+                                )}
+
+                                {kind === 'line' && (
+                                    <Line
+                                        type="linear"
+                                        dataKey="points"
+                                        stroke="url(#ledger-line)"
+                                        strokeWidth={2.5}
+                                        /* The point of this option is the
+                                           points: every reading is marked, with
+                                           a ring in the surface colour so
+                                           neighbours never merge. */
+                                        dot={{ r: 3.5, fill: '#f2b544', stroke: '#221816', strokeWidth: 2 }}
+                                        activeDot={{ r: 5, fill: '#f2b544', stroke: '#16100f', strokeWidth: 2 }}
+                                        isAnimationActive={motionOK}
+                                        animationDuration={800}
+                                    />
+                                )}
                             </ComposedChart>
                         </ResponsiveContainer>
                     </>

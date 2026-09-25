@@ -98,7 +98,10 @@ model Habit {
   id          String   @id @default(uuid())
   title       String
   description String?
-  priority    Int      @default(1) // 1=high, 2=medium, 3=low
+  // Ascending is more important; three queries order by it. Points are derived
+  // from this rather than stored, so changing a habit's priority re-scores its
+  // whole history rather than only the days logged after the change.
+  priority    Int      @default(3) // 1=very high, 2=high, 3=medium, 4=low
   category    String? // Health, Work, Learning, Mindfulness, Lifestyle, Other
   tags        String[] @default([])
   color       String   @default("#6366f1") // for UI color coding

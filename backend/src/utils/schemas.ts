@@ -47,7 +47,8 @@ export const reminderConfigSchema = z.object({
 export const createHabitSchema = z.object({
     title: z.string().min(1).max(200),
     description: z.string().max(1000).optional(),
-    priority: z.number().int().min(1).max(3).default(2),
+    // 1=very high, 2=high, 3=medium, 4=low
+    priority: z.number().int().min(1).max(4).default(3),
     category: z.enum(['Health', 'Work', 'Learning', 'Mindfulness', 'Lifestyle', 'Other']).optional(),
     tags: z.array(z.string()).default([]),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6366f1'),
@@ -71,7 +72,7 @@ export const createHabitSchema = z.object({
 export const updateHabitSchema = z.object({
     title: z.string().min(1).max(200).optional(),
     description: z.string().max(1000).optional(),
-    priority: z.number().int().min(1).max(3).optional(),
+    priority: z.number().int().min(1).max(4).optional(),
     category: z.enum(['Health', 'Work', 'Learning', 'Mindfulness', 'Lifestyle', 'Other']).optional(),
     tags: z.array(z.string()).optional(),
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),

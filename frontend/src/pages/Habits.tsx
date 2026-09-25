@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
 import {
-    ChevronUp, ChevronRight, ChevronDown, Sparkles, ListTodo,
+    ChevronsUp, ChevronUp, ChevronRight, ChevronDown, Sparkles, ListTodo,
     Edit2, Trash2, Bell, BellOff, Clock, Plus, Flag, GripVertical,
 } from 'lucide-react';
 import { fetchHabits, createHabit, deleteHabit, updateHabit, reorderHabits, parseHabitFromText } from '../lib/queries';
@@ -52,11 +52,26 @@ const inDays = (n: number) => {
     return isoLocal(d);
 };
 
+/**
+ * Ascending is more important, which is also the order the list sorts by.
+ *
+ * `points` is what a kept day of this habit is worth, and it has to match
+ * backend/src/utils/points.ts — the server scores the chart, this only says so
+ * where the choice is made. Medium and Low share a score on purpose: below
+ * Medium there is nothing left to take away without a kept day being worth
+ * nothing at all.
+ */
 const PRIORITY = {
-    1: { icon: ChevronUp, label: 'High', color: 'var(--gold)' },
-    2: { icon: ChevronRight, label: 'Medium', color: 'var(--copper-lit)' },
-    3: { icon: ChevronDown, label: 'Low', color: 'var(--cold)' },
+    1: { icon: ChevronsUp, label: 'Very high', color: 'var(--gold)', points: 3 },
+    2: { icon: ChevronUp, label: 'High', color: 'var(--copper-lit)', points: 2 },
+    3: { icon: ChevronRight, label: 'Medium', color: 'var(--copper)', points: 1 },
+    4: { icon: ChevronDown, label: 'Low', color: 'var(--cold)', points: 1 },
 } as const;
+
+type PriorityKey = keyof typeof PRIORITY;
+
+/** Medium, matching the column default and the create schema. */
+const DEFAULT_PRIORITY = 3;
 
 // ─── Habit card ─────────────────────────────────────────────────────
 function HabitCard({ habit, onEdit, onDelete, onToggleChallenge, onGrab, onGripKey }: {
@@ -68,7 +83,7 @@ function HabitCard({ habit, onEdit, onDelete, onToggleChallenge, onGrab, onGripK
     onGripKey?: (e: React.KeyboardEvent) => void;
 }) {
     const reminder = habit.reminders?.[0];
-    const p = PRIORITY[(habit.priority ?? 2) as 1 | 2 | 3] ?? PRIORITY[2];
+    const p = PRIORITY[(habit.priority ?? DEFAULT_PRIORITY) as PriorityKey] ?? PRIORITY[DEFAULT_PRIORITY];
     const PIcon = p.icon;
 
     return (
@@ -297,7 +312,7 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
     const [form, setForm] = useState({
         title: initial?.title || '',
         description: initial?.description || '',
-        priority: initial?.priority || 2,
+        priority: initial?.priority || DEFAULT_PRIORITY,
         category: initial?.category || 'Health',
         color: initial?.color || COLORS[0],
         startDate: initial?.startDate || today,
@@ -421,10 +436,18 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
             <div className="grid-2" style={{ gap: '0.75rem' }}>
                 <div>
                     <label className="label">Priority</label>
+                    {/* The score is on the option itself: priority only means
+                        anything here because of what it is worth, and hiding
+                        that makes the choice look cosmetic. */}
                     <select className="select" value={form.priority} onChange={set('priority')}>
-                        <option value={1}>High</option>
-                        <option value={2}>Medium</option>
-                        <option value={3}>Low</option>
+                        {(Object.keys(PRIORITY) as unknown as PriorityKey[]).map((key) => {
+                            const p = PRIORITY[key];
+                            return (
+                                <option key={key} value={key}>
+                                    {p.label} · {p.points} {p.points === 1 ? 'point' : 'points'}
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
                 <div>
