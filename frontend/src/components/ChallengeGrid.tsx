@@ -11,6 +11,7 @@ import { useToast } from '../contexts/ToastContext';
 import { errMsg } from '../lib/errors';
 import { springs, useMotionOK } from '../lib/motion';
 import { invalidateHabitData, invalidateHabitShape } from '../lib/invalidate';
+import { countDueDays, describeDays } from '../lib/schedule';
 import { iso } from './RangeControl';
 import Counter from './Counter';
 import { Skeleton, StatCardsSkeleton } from './Skeleton';
@@ -417,7 +418,17 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
         if (h.description) return h.description;
         if (!h.endDate) return h.category;
         const left = differenceInCalendarDays(parseISO(h.endDate), parseISO(today));
-        return left < 0 ? 'Finished' : left === 0 ? 'Last day' : `${left} days left`;
+        if (left < 0) return 'Finished';
+        // On a schedule, count sessions rather than calendar days: a weekend
+        // revision challenge with "26 days left" has seven revisions left, and
+        // that is the number worth knowing.
+        if (h.repeatDays?.length) {
+            const sessions = countDueDays(today, h.endDate, h.repeatDays);
+            const when = describeDays(h.repeatDays);
+            if (sessions === 0) return `${when} · none left`;
+            return `${when} · ${sessions} ${sessions === 1 ? 'session' : 'sessions'} left`;
+        }
+        return left === 0 ? 'Last day' : `${left} days left`;
     };
 
     return (
@@ -592,8 +603,14 @@ export default function ChallengeGrid({ from, to }: { from: string; to: string }
                                     table. Drawn first so the earned mark sits
                                     in front of it, and the space between the
                                     two is what the day cost. */}
+                                {/* A step, not a curve. Each day has its own
+                                    ceiling and nothing exists between days;
+                                    once habits run on chosen weekdays that
+                                    ceiling jumps from day to day, and a
+                                    smoothed line swung through values no day
+                                    ever had. */}
                                 <Line
-                                    type="monotone"
+                                    type="step"
                                     dataKey="possible"
                                     stroke={PACE}
                                     strokeWidth={2}

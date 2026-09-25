@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import { hasDueDay, normaliseDays } from './schedule';
+
+// Weekdays a habit is due, 0=Sunday..6=Saturday. Normalised on the way in, so
+// every stored schedule has exactly one spelling and "all seven" is stored as
+// the empty list that already means every day.
+const repeatDays = z.array(z.number().int().min(0).max(6)).max(7);
 
 // ─── Auth ──────────────────────────────────────────────────────────
 
@@ -54,6 +60,7 @@ export const createHabitSchema = z.object({
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default('#6366f1'),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+    repeatDays: repeatDays.default([]).transform(normaliseDays),
     subHabits: z.array(z.string().min(1).max(200)).default([]),
     aiGenerated: z.boolean().default(false),
     isChallenge: z.boolean().default(false),
@@ -67,6 +74,9 @@ export const createHabitSchema = z.object({
     // The form already refuses this, but the form is not the only way in.
     message: 'A habit cannot end before it starts',
     path: ['endDate'],
+}).refine((d) => hasDueDay(d.startDate, d.endDate, d.repeatDays), {
+    message: 'None of the chosen days fall between the start and end dates',
+    path: ['repeatDays'],
 });
 
 export const updateHabitSchema = z.object({
@@ -83,6 +93,9 @@ export const updateHabitSchema = z.object({
     // enforced in `updateHabit`, which can see the row.
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+    // Whether the result still has a due day is checked in `updateHabit`,
+    // against the stored dates, for the same reason as the date ordering.
+    repeatDays: repeatDays.optional().transform((d) => (d === undefined ? undefined : normaliseDays(d))),
     isArchived: z.boolean().optional(),
     // The end-date rule can't be checked here — the habit may already have one
     // on the row. `updateHabit` enforces it against the stored value.

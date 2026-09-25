@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion, Reorder, useDragControls } from 'motion/react';
 import {
     ChevronsUp, ChevronUp, ChevronRight, ChevronDown, Sparkles, ListTodo,
-    Edit2, Trash2, Bell, BellOff, Clock, Plus, Flag, GripVertical,
+    Edit2, Trash2, Bell, BellOff, Clock, Plus, Flag, GripVertical, CalendarDays,
 } from 'lucide-react';
 import { fetchHabits, createHabit, deleteHabit, updateHabit, reorderHabits, parseHabitFromText } from '../lib/queries';
 import { useToast } from '../contexts/ToastContext';
@@ -12,6 +12,7 @@ import { HabitListSkeleton } from '../components/Skeleton';
 import { errMsg } from '../lib/errors';
 import { springs, useMotionOK } from '../lib/motion';
 import { invalidateHabitData, invalidateHabitShape } from '../lib/invalidate';
+import { describeDays, nextDueDay, WEEKDAYS_SHORT } from '../lib/schedule';
 import Modal from '../components/Modal';
 import DateField from '../components/DateField';
 import { UnlitKindling } from '../components/Art';
@@ -115,6 +116,13 @@ function HabitCard({ habit, onEdit, onDelete, onToggleChallenge, onGrab, onGripK
                         <span className="badge badge--neutral" style={{ color: p.color }}>
                             <PIcon size={11} /> {p.label}
                         </span>
+                        {/* Only when it is not every day. "Every day" on every
+                            card would be noise that says nothing. */}
+                        {habit.repeatDays?.length > 0 && (
+                            <span className="badge badge--neutral">
+                                <CalendarDays size={11} /> {describeDays(habit.repeatDays)}
+                            </span>
+                        )}
                         {habit.aiGenerated && <span className="badge badge--ai"><Sparkles size={11} /> AI</span>}
                         {habit.subHabits?.length > 0 && (
                             <span className="badge badge--neutral"><ListTodo size={11} /> {habit.subHabits.length} steps</span>
@@ -318,8 +326,18 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
         startDate: initial?.startDate || today,
         endDate: initial?.endDate || '',
         isChallenge: initial?.isChallenge || false,
+        repeatDays: (initial?.repeatDays as number[] | undefined) ?? [],
         subHabits: initial?.subHabits?.map((s: any) => s.content || s).join('\n') || '',
     });
+
+    /* Sorted as it is edited, so the order on screen and the order stored are
+       the same and the "Weekends" label can recognise [0, 6]. */
+    const setRepeat = (days: number[]) =>
+        setForm((f) => ({ ...f, repeatDays: [...new Set(days)].sort((a, b) => a - b) }));
+    const toggleRepeatDay = (day: number) =>
+        setRepeat(form.repeatDays.includes(day)
+            ? form.repeatDays.filter((d: number) => d !== day)
+            : [...form.repeatDays, day]);
     const motionOK = useMotionOK();
 
     // Flagging a challenge without a finish line is the one invalid state, so
@@ -363,6 +381,11 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
                 color: parsed.color || f.color,
                 startDate: parsed.startDate || f.startDate,
                 endDate: parsed.endDate || f.endDate,
+                // "revise on sat and sun" arrives as [0, 6]. An empty answer
+                // leaves whatever was already picked rather than wiping it.
+                repeatDays: Array.isArray(parsed.repeatDays) && parsed.repeatDays.length
+                    ? [...new Set<number>(parsed.repeatDays.filter((d: unknown) => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6))].sort((a, b) => a - b)
+                    : f.repeatDays,
                 subHabits: parsed.subHabits?.join('\n') || f.subHabits,
             }));
         } catch { /* the form simply stays as the user left it */ }
@@ -377,6 +400,9 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
         if (!form.startDate) return setProblem('Pick the day this starts.');
         if (form.isChallenge && !form.endDate) return setProblem('A challenge needs an end date.');
         if (form.endDate && form.endDate < form.startDate) return setProblem('It cannot end before it starts.');
+        if (form.endDate && !nextDueDay(form.startDate, form.endDate, form.repeatDays)) {
+            return setProblem(`None of those days fall between ${form.startDate} and ${form.endDate}.`);
+        }
         setProblem('');
 
         const subs = form.subHabits.split('\n').map((s: string) => s.trim()).filter(Boolean);
@@ -502,6 +528,39 @@ function HabitForm({ initial, onClose, onSave }: { initial?: any; onClose: () =>
                         clearable={!form.isChallenge}
                         required={form.isChallenge}
                     />
+                </div>
+            </div>
+
+            {/* Sits right under the dates because it is part of the same
+                answer: when this happens. Nothing selected means every day,
+                so no existing habit changes meaning. */}
+            <div>
+                <div className="row row--between" style={{ marginBottom: '0.45rem' }}>
+                    <span className="label" id="habit-repeat-label" style={{ marginBottom: 0 }}>Repeats on</span>
+                    <span className="t-xs t-ash">{describeDays(form.repeatDays)}</span>
+                </div>
+                <div className="repeat-days" role="group" aria-labelledby="habit-repeat-label">
+                    {WEEKDAYS_SHORT.map((label, idx) => {
+                        const on = form.repeatDays.includes(idx);
+                        return (
+                            <button
+                                key={idx}
+                                type="button"
+                                className="repeat-day"
+                                aria-pressed={on}
+                                onClick={() => toggleRepeatDay(idx)}
+                            >
+                                {label}
+                            </button>
+                        );
+                    })}
+                </div>
+                {/* Shortcuts for the two sets people actually mean, plus the
+                    way back. Picking all seven lands on "every day" anyway. */}
+                <div className="repeat-presets">
+                    <button type="button" onClick={() => setRepeat([0, 6])}>Weekends</button>
+                    <button type="button" onClick={() => setRepeat([1, 2, 3, 4, 5])}>Weekdays</button>
+                    <button type="button" onClick={() => setRepeat([])}>Every day</button>
                 </div>
             </div>
 

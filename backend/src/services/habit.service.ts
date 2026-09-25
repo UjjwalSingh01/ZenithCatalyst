@@ -3,6 +3,7 @@ import { AppError } from '../middlewares/error.middleware';
 import { tryAwardBadge } from './auth.service';
 import { createHabitReminder, updateHabitReminder, ReminderConfig } from './scheduler.service';
 import logger from '../utils/logger';
+import { hasDueDay, isDueOn, previousDueDate } from '../utils/schedule';
 
 const XP_PER_COMPLETION = 10;
 const XP_STREAK_BONUS = 5;
@@ -18,6 +19,7 @@ export async function createHabit(userId: string, data: {
     color?: string;
     startDate: string;
     endDate?: string;
+    repeatDays?: number[];
     subHabits?: string[];
     aiGenerated?: boolean;
     isChallenge?: boolean;
@@ -116,6 +118,7 @@ export async function updateHabit(userId: string, habitId: string, data: {
     color?: string;
     startDate?: string;
     endDate?: string;
+    repeatDays?: number[];
     isArchived?: boolean;
     isChallenge?: boolean;
     reminder?: ReminderConfig;
@@ -137,6 +140,13 @@ export async function updateHabit(userId: string, habitId: string, data: {
     // Dates are ISO "YYYY-MM-DD", so a string compare is a date compare.
     if (willEnd && willEnd < willStart) {
         throw new AppError(400, 'A habit cannot end before it starts');
+    }
+    // Moving either date, or changing the days, can leave a window with no
+    // due day in it. All three may be absent from the payload, so this reads
+    // the row for whichever was not sent.
+    const willRepeat = data.repeatDays ?? habit.repeatDays;
+    if (!hasDueDay(willStart, willEnd, willRepeat)) {
+        throw new AppError(400, 'None of the chosen days fall between the start and end dates');
     }
 
     const { reminder, ...updateData } = data;
@@ -308,7 +318,10 @@ export async function getHabitsForDate(userId: string, date: string) {
         orderBy: [{ position: 'asc' }, { priority: 'asc' }, { createdAt: 'asc' }],
     });
 
-    return habits.map((h) => {
+    // The query narrows to the date range; the weekday is filtered here, since
+    // "is today one of its days" is not a column comparison. A weekend habit
+    // simply does not appear on a Wednesday, rather than appearing unticked.
+    return habits.filter((h) => isDueOn(h, date)).map((h) => {
         const completed = h.dates[0]?.completed ?? false;
         const subHabits = h.subHabits.map((sh) => ({
             id: sh.id,
@@ -329,11 +342,19 @@ async function _updateUserGamification(userId: string, habitId: string, date: st
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
 
-    // Calculate streak bonus
-    const yesterday = new Date(date);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yStr = yesterday.toISOString().split('T')[0];
-    const yesterdayComplete = await prisma.habitDate.findFirst({ where: { habitId, date: yStr, completed: true } });
+    // Calculate streak bonus. The streak continues when the habit was kept on
+    // the last day it was due — not on calendar yesterday. For a daily habit
+    // those are the same day. For a weekend one, Saturday's yesterday is a
+    // Friday it was never due on, so asking about yesterday reset the streak
+    // every Saturday however faithfully it was kept.
+    const schedule = await prisma.habit.findUnique({
+        where: { id: habitId },
+        select: { startDate: true, endDate: true, repeatDays: true },
+    });
+    const previous = schedule ? previousDueDate(schedule, date) : null;
+    const yesterdayComplete = previous
+        ? await prisma.habitDate.findFirst({ where: { habitId, date: previous, completed: true } })
+        : null;
     const streakBonus = yesterdayComplete ? XP_STREAK_BONUS : 0;
 
     const totalXp = user.experiencePoints + xpGained + streakBonus;

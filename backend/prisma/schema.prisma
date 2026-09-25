@@ -107,6 +107,14 @@ model Habit {
   color       String   @default("#6366f1") // for UI color coding
   startDate   String // "YYYY-MM-DD"
   endDate     String? // null = open-ended
+
+  // Weekdays this is due, 0=Sunday..6=Saturday — the same numbering as JS
+  // getDay() and as ScheduledTask.reminderDays. Empty means every day, which
+  // is why no data migration exists: every habit that predates this already
+  // has the value that means exactly what it always meant. Whether a habit is
+  // due on a date is decided in one place, utils/schedule.ts; read that rather
+  // than comparing dates here and there.
+  repeatDays  Int[]    @default([])
   isArchived  Boolean  @default(false)
   aiGenerated Boolean  @default(false)
 

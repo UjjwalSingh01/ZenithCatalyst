@@ -3,6 +3,9 @@ import { env } from '../utils/env';
 import { prisma } from '../utils/prisma';
 import logger from '../utils/logger';
 import { getRedis } from '../utils/redis';
+import { isDueOn } from '../utils/schedule';
+
+const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // ─── Gemini Client ────────────────────────────────────────────────
 
@@ -71,12 +74,14 @@ export async function buildHabitContext(userId: string, rangeDays: number) {
     });
 
     const habitStats = habits.map((h) => {
-        let completedDays = 0, tempStreak = 0, bestStreak = 0;
+        let completedDays = 0, dueDays = 0, tempStreak = 0, bestStreak = 0;
         for (let d = 0; d < rangeDays; d++) {
             const dt = new Date(from); dt.setDate(dt.getDate() + d);
             const dStr = dt.toISOString().split('T')[0];
-            if (h.startDate > dStr) continue;
-            if (h.endDate && h.endDate < dStr) continue;
+            // Days it was not due are skipped, not counted as misses, so a
+            // weekend habit's streak runs Sunday to the next Saturday.
+            if (!isDueOn(h, dStr)) continue;
+            dueDays++;
 
             let done = false;
             if (h.subHabits.length > 0) {
@@ -92,8 +97,13 @@ export async function buildHabitContext(userId: string, rangeDays: number) {
         return {
             name: h.title, description: h.description ?? '', priority: h.priority, category: h.category,
             subHabits: h.subHabits.map((s) => s.content),
-            completionRate: Math.round((completedDays / Math.min(rangeDays, activeDays)) * 100),
-            completedDays, activeDays, currentStreak: tempStreak, bestStreak,
+            // Tells the coach the schedule, so it does not read a weekend-only
+            // habit's quiet weekdays as neglect.
+            repeatsOn: h.repeatDays.length ? h.repeatDays.map((i) => WEEKDAY_NAMES[i]).join(', ') : 'every day',
+            // Against the days it was actually due. The calendar-day version
+            // capped a perfectly kept Saturday-and-Sunday habit at about 29%.
+            completionRate: Math.round((completedDays / Math.max(1, dueDays)) * 100),
+            completedDays, dueDays, activeDays, currentStreak: tempStreak, bestStreak,
         };
     });
 
@@ -181,7 +191,8 @@ export async function parseNaturalLanguageHabit(text: string) {
         `You are a habit parser. Parse natural language into a structured habit. Return ONLY valid JSON:
 {"title":"habit name","description":"optional","subHabits":["step 1","step 2"],"startDate":"YYYY-MM-DD","endDate":"YYYY-MM-DD or null","priority":3,"category":"Health|Work|Learning|Mindfulness|Lifestyle|Other","color":"#hex"}
 Today is ${today}. Set endDate null if ongoing. Choose a vibrant color hex. Infer sub-habits only if implied.
-priority is 1=very high, 2=high, 3=medium, 4=low. Use 3 unless the text says how much it matters; reserve 1 for language like "critical" or "top priority".`,
+priority is 1=very high, 2=high, 3=medium, 4=low. Use 3 unless the text says how much it matters; reserve 1 for language like "critical" or "top priority".
+Also return "repeatDays": the weekdays it happens on, 0=Sunday..6=Saturday. "on weekends" or "sat and sun" is [0,6], "weekdays" is [1,2,3,4,5], "mondays" is [1]. Use [] when no days are named, which means every day.`,
         text,
         0.3
     );

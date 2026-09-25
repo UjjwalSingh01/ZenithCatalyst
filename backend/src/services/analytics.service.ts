@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma';
 import { pointsFor } from '../utils/points';
+import { isDueOn } from '../utils/schedule';
 
 export async function getAnalytics(userId: string, range: string) {
     const days = rangeToDays(range);
@@ -169,7 +170,9 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
         const worth = pointsFor(h.priority);
 
         const marks: GridMark[] = dates.map((date) => {
-            const onPlan = date >= h.startDate && (!h.endDate || date <= h.endDate);
+            // Off its days, a day is "off" — drawn as not on the plan, and
+            // never scored as missed or counted toward the points on offer.
+            const onPlan = isDueOn(h, date);
             if (!onPlan) return 'off';
             const t = dayTally.get(date)!;
             if (byDate.get(date)) {
@@ -204,6 +207,7 @@ export async function getHabitGrid(userId: string, from: string, to: string) {
             color: h.color,
             startDate: h.startDate,
             endDate: h.endDate,
+            repeatDays: h.repeatDays,
             marks,
             // Same length and order as `marks`, so the row reads by index.
             notes: dates.map((date) => byNote.get(date) ?? null),
