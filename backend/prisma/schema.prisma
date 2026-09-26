@@ -238,6 +238,21 @@ model UserBadge {
   @@unique([userId, badgeId])
 }
 
+/// One row per data migration (prisma/data-migrations/*.sql) that has run.
+///
+/// It is declared here, not only created by the scripts, because the backend
+/// runs `prisma db push --accept-data-loss` on every start, and db push drops
+/// any table the schema does not declare. The first version of this table was
+/// created by hand and was deleted on the next restart, taking with it the only
+/// record that the priority shift had already happened — so the next run would
+/// have shifted every priority again.
+model DataMigration {
+  name      String   @id
+  appliedAt DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  @@map("_zenith_data_migrations")
+}
+
 model Quest {
   id          String    @id @default(uuid())
   title       String

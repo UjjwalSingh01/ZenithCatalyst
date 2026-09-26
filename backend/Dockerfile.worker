@@ -1,27 +1,50 @@
-# ─── Cron Worker Stage (lean, no HTTP server needed) ─────────────
+# ─── Cron Worker (lean, no HTTP server needed) ──────────────────────
+#
+# The two install stages below are instruction-for-instruction identical to
+# the backend Dockerfile's `deps` and `dev-deps`. Docker keys each layer on its
+# instruction and inputs, so the worker reuses the backend's already-installed
+# node_modules instead of downloading every package a second time.
+#
+# It used to COPY the prisma/ folder before `npm ci`. Any schema change then
+# invalidated the install layer and forced a full re-download — which is how an
+# unrelated schema edit turned into a 135-second npm fetch that died on a
+# network reset. The schema is now copied only after dependencies are in.
+
+# ─── Stage 1: Production dependencies (shared with backend) ─────────
 FROM node:20-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY package*.json ./
-COPY prisma ./prisma/
-RUN npm ci --only=production && npx prisma generate
+RUN npm ci --omit=dev
 
-FROM node:20-alpine AS builder
+# ─── Stage 2: All dependencies (shared with backend) ────────────────
+FROM node:20-alpine AS dev-deps
 WORKDIR /app
 RUN apk add --no-cache openssl
 COPY package*.json ./
-COPY prisma ./prisma/
 RUN npm ci
-COPY . .
-RUN npm run build
 
+# ─── Stage 3: Build ─────────────────────────────────────────────────
+# Generates the client here, from the schema being built, rather than bundling
+# whatever happened to be in the local src/generated folder. `prisma generate`
+# used to run in the production-only stage, where the CLI is not installed, so
+# npx had to fetch it from the network on every build.
+FROM dev-deps AS builder
+WORKDIR /app
+COPY . .
+# Dummy URL so prisma.config.ts can resolve DATABASE_URL at generate time
+# (generate only reads the schema, it does not connect to a database)
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npx prisma generate && \
+    npm run build
+
+# ─── Stage 4: Runtime ───────────────────────────────────────────────
 FROM node:20-alpine AS production
 WORKDIR /app
 RUN apk add --no-cache openssl dumb-init && \
     addgroup -S appgroup && adduser -S appuser -G appgroup
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/prisma ./prisma
+COPY prisma ./prisma/
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 
