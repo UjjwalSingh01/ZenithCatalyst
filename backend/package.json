@@ -11,7 +11,9 @@
     "migrate": "prisma migrate dev && prisma generate",
     "studio": "prisma studio",
     "db:push": "prisma db push && prisma generate",
-    "seed": "tsx src/utils/seed.ts"
+    "seed": "tsx src/utils/seed.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@google/genai": "^1.50.1",
@@ -56,6 +58,7 @@
     "esbuild": "^0.24.0",
     "prisma": "^7.8.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "vitest": "^3.2.7"
   }
 }

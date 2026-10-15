@@ -68,6 +68,26 @@ docker compose exec backend npx prisma db push
 
 ---
 
+## Stop & Rebuild
+
+```bash
+# Stop and remove all containers (Postgres/Redis volumes are preserved)
+docker compose down
+
+# Rebuild images and restart after any code change
+docker compose up -d --build
+
+# Rebuild just one service (faster, e.g. after backend-only changes)
+docker compose up -d --build backend
+
+# Tail logs to confirm everything came up
+docker compose logs -f
+```
+
+> Note: bare `docker stop` needs a container name, and `docker compose stop` only pauses containers — neither rebuilds. Use `docker compose up -d --build` to pick up code changes.
+
+---
+
 ## Local Development (without Docker)
 
 ```bash
@@ -106,8 +126,36 @@ npm run dev               # http://localhost:5173
 | `EMAIL_FROM` | ❌ | Sender address (default: `noreply@zenithcatalyst.app`) |
 | `JWT_EXPIRES_IN` | ❌ | Access token TTL (default: `15m`) |
 | `JWT_REFRESH_EXPIRES_IN` | ❌ | Refresh token TTL (default: `7d`) |
-| `FRONTEND_URL` | ❌ | CORS origin allowed (default: `http://localhost`) |
+| `FRONTEND_URL` | ❌ | CORS origin + OAuth redirect target (default: `http://localhost`) |
+| `GOOGLE_CLIENT_ID` | ⚠️ | Google OAuth client ID (required for Google sign-in) |
+| `GOOGLE_CLIENT_SECRET` | ⚠️ | Google OAuth client secret |
+| `GOOGLE_CALLBACK_URL` | ⚠️ | OAuth callback, must match the Console exactly (e.g. `http://localhost/api/auth/google/callback`) |
 | `LOG_LEVEL` | ❌ | Pino log level (default: `info`) |
+
+> Google sign-in is **optional** — if the three `GOOGLE_*` vars are unset the app still boots and the button simply reports it isn't configured. See **Google Sign-In Setup** below.
+
+---
+
+## Google Sign-In Setup
+
+The app supports "Continue with Google" via a server-side OAuth2 redirect flow. To enable it:
+
+1. **Create OAuth credentials** in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials):
+   - Create (or select) a project → **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
+   - Application type: **Web application**.
+   - **Authorized redirect URIs** — add the callback URL the browser will hit (must match `GOOGLE_CALLBACK_URL` exactly):
+     - Docker / prod: `http://localhost/api/auth/google/callback` (or `https://yourdomain.com/api/auth/google/callback`)
+     - Local dev (Vite + backend on :3000): `http://localhost:3000/api/auth/google/callback`
+   - (Authorized JavaScript origins aren't required for this server-side flow.)
+2. **Copy the Client ID + Client Secret** into `backend/.env`:
+   ```bash
+   GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=xxxxxxxx
+   GOOGLE_CALLBACK_URL=http://localhost/api/auth/google/callback
+   ```
+3. **Rebuild** the backend so it picks up the env: `docker compose up -d --build backend`.
+
+**How it works:** the button hits `GET /api/auth/google` → Google consent → `GET /api/auth/google/callback` exchanges the code, verifies the ID token, finds-or-creates the user (auto-linking to an existing account with the same verified email), issues your normal JWT access/refresh tokens, and redirects to the SPA's `/auth/google/callback` route which stores them. No frontend env var is needed (server-side flow).
 
 ---
 
@@ -120,6 +168,9 @@ npm run dev               # http://localhost:5173
 | POST | `/login` | Get tokens |
 | POST | `/refresh` | Rotate tokens |
 | POST | `/logout` | Invalidate refresh token |
+| POST | `/logout-all` | Log out all devices (bumps token version) |
+| GET | `/google` | Start Google OAuth redirect |
+| GET | `/google/callback` | Google OAuth callback → issues tokens |
 
 ### Habits — `/api/habits`
 | Method | Path | Description |
@@ -238,3 +289,9 @@ Secrets required in GitHub:
 - 🔐 **Auth** — JWT + refresh token rotation, rate limiting
 - 📦 **Docker** — production-optimized multi-stage Alpine images
 - 🚀 **CI/CD** — GitHub Actions → GHCR → SSH deploy
+
+---
+
+## Development with Claude Code
+
+This repo ships a multi-agent Claude Code setup (`/feature`, `/fix`, `/review`). See [docs/MULTI_AGENT.md](docs/MULTI_AGENT.md).
